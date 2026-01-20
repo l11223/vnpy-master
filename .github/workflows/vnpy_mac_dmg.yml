@@ -164,7 +164,7 @@ jobs:
           fi
           
           # 创建Info.plist（Mac App必需）
-          cat > VNPY.app/Contents/Info.plist << 'EOF'
+          cat > VNPY.app/Contents/Info.plist << 'PLIST_EOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -189,7 +189,7 @@ jobs:
               <false/>
           </dict>
           </plist>
-          EOF
+          PLIST_EOF
           
           # 最终验证.app结构
           echo "验证.app结构..."
@@ -229,31 +229,31 @@ jobs:
           ln -s /Applications dmg-contents/Applications
           
           # 创建README文件（安装说明）
-          cat > dmg-contents/README.txt << 'EOF'
-============================================
-VNPY Mac优化版 - 安装说明
-============================================
-
-安装步骤：
-1. 将 VNPY.app 拖拽到 Applications 文件夹
-2. 在启动台找到并打开 VNPY优化版
-3. 首次运行时，右键点击应用 -> 打开（绕过安全验证）
-
-系统要求：
-- macOS 10.15 (Catalina) 或更高版本
-- Apple Silicon (M1/M2/M3) 或 Intel 处理器
-
-功能特性：
-- Mac系统完美适配
-- A股量化交易支持
-- 增强策略模板
-- 多进程策略执行
-- 历史数据管理
-- 优化指标计算
-
-如有问题，请查看使用说明文档。
-============================================
-EOF
+          cat > dmg-contents/README.txt << 'README_EOF'
+          ============================================
+          VNPY Mac优化版 - 安装说明
+          ============================================
+          
+          安装步骤：
+          1. 将 VNPY.app 拖拽到 Applications 文件夹
+          2. 在启动台找到并打开 VNPY优化版
+          3. 首次运行时，右键点击应用 -> 打开（绕过安全验证）
+          
+          系统要求：
+          - macOS 10.15 (Catalina) 或更高版本
+          - Apple Silicon (M1/M2/M3) 或 Intel 处理器
+          
+          功能特性：
+          - Mac系统完美适配
+          - A股量化交易支持
+          - 增强策略模板
+          - 多进程策略执行
+          - 历史数据管理
+          - 优化指标计算
+          
+          如有问题，请查看使用说明文档。
+          ============================================
+          README_EOF
           
           # 检查create-dmg是否可用
           if ! command -v create-dmg &> /dev/null; then
