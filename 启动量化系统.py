@@ -92,24 +92,64 @@ def start_ui_mode():
         # 创建主引擎
         main_engine = MainEngine(event_engine)
         
-        # 加载增强功能模块（如果可用）
+        # 加载并注册VNPY标准应用（如果可用）
+        try:
+            from vnpy_ctastrategy import CtaStrategyApp
+            main_engine.add_app(CtaStrategyApp)
+            print("✅ CTA策略模块已加载")
+        except ImportError:
+            print("ℹ️  CTA策略模块未安装（可选）")
+        except Exception as e:
+            print(f"⚠️  CTA策略模块加载失败: {e}")
+        
+        try:
+            from vnpy_ctabacktester import CtaBacktesterApp
+            main_engine.add_app(CtaBacktesterApp)
+            print("✅ CTA回测模块已加载")
+        except ImportError:
+            print("ℹ️  CTA回测模块未安装（可选）")
+        except Exception as e:
+            print(f"⚠️  CTA回测模块加载失败: {e}")
+        
+        try:
+            from vnpy_datamanager import DataManagerApp
+            main_engine.add_app(DataManagerApp)
+            print("✅ 数据管理模块已加载")
+        except ImportError:
+            print("ℹ️  数据管理模块未安装（可选）")
+        except Exception as e:
+            print(f"⚠️  数据管理模块加载失败: {e}")
+        
+        # 加载并初始化增强功能模块（我们开发的）
         try:
             from vnpy.trader.multiprocess_manager import ProcessManager
             from vnpy.trader.enhanced_risk_manager import EnhancedRiskManager
             from vnpy.trader.status_monitor import StatusMonitor
-            print("✅ 增强功能模块加载成功")
+            from vnpy.trader.history_manager import HistoryManager
+            from vnpy.trader.data_filter import DataFilter
+            
+            # 初始化增强功能（这些是工具类，不需要注册到MainEngine）
+            process_manager = ProcessManager()
+            risk_manager = EnhancedRiskManager()
+            status_monitor = StatusMonitor()
+            history_manager = HistoryManager()
+            data_filter = DataFilter()
+            
+            print("✅ 增强功能模块已加载：")
+            print("   - 多进程策略管理器")
+            print("   - 增强风险控制")
+            print("   - 状态监控")
+            print("   - 历史数据管理")
+            print("   - 数据过滤器")
         except Exception as e:
-            print(f"ℹ️  增强功能模块未加载: {e}")
+            print(f"⚠️  增强功能模块加载失败: {e}")
+            import traceback
+            traceback.print_exc()
         
         # 添加Gateway（需要用户安装）
         # 示例：如果有vnpy_xtp或vnpy_tora
         # from vnpy_xtp import XtpGateway
         # main_engine.add_gateway(XtpGateway)
-        
-        # 添加应用（需要用户安装）
-        # 示例：如果有vnpy_ctastrategy
-        # from vnpy_ctastrategy import CtaStrategyApp
-        # main_engine.add_app(CtaStrategyApp)
         
         # 创建主窗口
         main_window = MainWindow(main_engine, event_engine)
@@ -154,22 +194,61 @@ def start_no_ui_mode():
         # 创建主引擎
         main_engine = MainEngine(event_engine)
         
-        # 加载增强功能模块
+        # 加载并注册VNPY标准应用（如果可用）
+        try:
+            from vnpy_ctastrategy import CtaStrategyApp
+            main_engine.add_app(CtaStrategyApp)
+            logger.info("✅ CTA策略模块已加载")
+        except ImportError:
+            logger.info("ℹ️  CTA策略模块未安装（可选）")
+        except Exception as e:
+            logger.warning(f"⚠️  CTA策略模块加载失败: {e}")
+        
+        try:
+            from vnpy_ctabacktester import CtaBacktesterApp
+            main_engine.add_app(CtaBacktesterApp)
+            logger.info("✅ CTA回测模块已加载")
+        except ImportError:
+            logger.info("ℹ️  CTA回测模块未安装（可选）")
+        except Exception as e:
+            logger.warning(f"⚠️  CTA回测模块加载失败: {e}")
+        
+        try:
+            from vnpy_datamanager import DataManagerApp
+            main_engine.add_app(DataManagerApp)
+            logger.info("✅ 数据管理模块已加载")
+        except ImportError:
+            logger.info("ℹ️  数据管理模块未安装（可选）")
+        except Exception as e:
+            logger.warning(f"⚠️  数据管理模块加载失败: {e}")
+        
+        # 加载并初始化增强功能模块（我们开发的）
         try:
             from vnpy.trader.multiprocess_manager import ProcessManager
             from vnpy.trader.enhanced_risk_manager import EnhancedRiskManager
             from vnpy.trader.status_monitor import StatusMonitor
+            from vnpy.trader.history_manager import HistoryManager
+            from vnpy.trader.data_filter import DataFilter
             
-            # 初始化增强功能
+            # 初始化增强功能（这些是工具类，不需要注册到MainEngine）
+            process_manager = ProcessManager()
             risk_manager = EnhancedRiskManager()
             status_monitor = StatusMonitor()
-            process_manager = ProcessManager()
+            history_manager = HistoryManager()
+            data_filter = DataFilter()
             
-            print("✅ 增强功能模块加载成功")
+            print("✅ 增强功能模块已加载：")
+            print("   - 多进程策略管理器")
+            print("   - 增强风险控制")
+            print("   - 状态监控")
+            print("   - 历史数据管理")
+            print("   - 数据过滤器")
             logger.info("增强功能模块加载成功")
         except Exception as e:
-            print(f"ℹ️  增强功能模块未加载: {e}")
-            logger.warning(f"增强功能模块未加载: {e}")
+            print(f"⚠️  增强功能模块加载失败: {e}")
+            logger.warning(f"增强功能模块加载失败: {e}")
+            import traceback
+            traceback.print_exc()
         
         print("✅ 系统启动成功（后台运行）")
         print("=" * 60)

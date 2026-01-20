@@ -63,16 +63,28 @@ jobs:
           --hidden-import vnpy.trader.enhanced_risk_manager \
           --hidden-import vnpy.trader.status_monitor \
           --hidden-import vnpy.trader.gateway_mac_adapter \
+          --hidden-import vnpy.trader.multiprocess_backtester \
+          --hidden-import vnpy.trader.optimization_visualization \
+          --hidden-import vnpy.alpha \
+          --hidden-import vnpy.alpha.strategy \
+          --hidden-import vnpy.alpha.strategy.template \
+          --hidden-import vnpy.alpha.strategy.strategies \
           --hidden-import vnpy.event \
           --hidden-import vnpy.trader.engine \
           --hidden-import vnpy.trader.ui \
+          --hidden-import vnpy.trader.ui.mainwindow \
+          --hidden-import vnpy.trader.ui.widget \
           --hidden-import loguru \
           --hidden-import tzlocal \
           --hidden-import talib \
           --hidden-import PySide6 \
+          --hidden-import PySide6.QtCore \
+          --hidden-import PySide6.QtGui \
+          --hidden-import PySide6.QtWidgets \
           --hidden-import qdarkstyle \
           --collect-all PySide6 \
           --collect-all qdarkstyle \
+          --collect-all vnpy \
           "启动量化系统.py"
           
           # 验证打包结果
