@@ -121,22 +121,122 @@ jobs:
             echo "✅ .app结构创建成功"
             chmod +x VNPY.app/Contents/MacOS/VNPY-Optimized
           else
-            echo "❌ .app结构创建失败"
-            ls -la VNPY.app/Contents/MacOS/
-            exit 1
+            echo "⚠️  检查可执行文件位置..."
+            # 查找可执行文件
+            EXECUTABLE=$(find dist/VNPY-Optimized -type f -perm +111 | head -1)
+            if [ -n "$EXECUTABLE" ]; then
+              echo "找到可执行文件: $EXECUTABLE"
+              # 如果可执行文件在子目录中，需要调整
+              if [ -d "dist/VNPY-Optimized/VNPY-Optimized" ]; then
+                echo "检测到嵌套目录，调整结构..."
+                cp dist/VNPY-Optimized/VNPY-Optimized/* VNPY.app/Contents/MacOS/ 2>/dev/null || true
+              fi
+              # 再次检查
+              if [ -f "VNPY.app/Contents/MacOS/VNPY-Optimized" ]; then
+                echo "✅ .app结构创建成功（已修复）"
+                chmod +x VNPY.app/Contents/MacOS/VNPY-Optimized
+              else
+                echo "❌ .app结构创建失败"
+                ls -la VNPY.app/Contents/MacOS/
+                ls -la dist/VNPY-Optimized/
+                exit 1
+              fi
+            else
+              echo "❌ 未找到可执行文件"
+              ls -la dist/VNPY-Optimized/
+              exit 1
+            fi
           fi
+          
+          # 验证.app可以运行
+          echo "验证.app结构..."
+          file VNPY.app/Contents/MacOS/VNPY-Optimized || echo "⚠️  可执行文件检查失败，但继续..."
 
-      # 步骤6：制作dmg镜像（Mac安装包）
+      # 步骤6：制作dmg镜像（Mac安装包，带标准安装界面）
       - name: Build DMG Image
         run: |
+          # 创建DMG内容目录
+          mkdir -p dmg-contents
+          
+          # 复制.app到DMG目录
+          cp -R VNPY.app dmg-contents/
+          
+          # 创建Applications文件夹的快捷方式（拖拽目标）
+          ln -s /Applications dmg-contents/Applications
+          
+          # 创建README文件（安装说明）
+          cat > dmg-contents/README.txt << 'EOF'
+          ============================================
+          VNPY Mac优化版 - 安装说明
+          ============================================
+          
+          安装步骤：
+          1. 将 VNPY.app 拖拽到 Applications 文件夹
+          2. 在启动台找到并打开 VNPY优化版
+          3. 首次运行时，右键点击应用 -> 打开（绕过安全验证）
+          
+          系统要求：
+          - macOS 10.15 (Catalina) 或更高版本
+          - Apple Silicon (M1/M2/M3) 或 Intel 处理器
+          
+          功能特性：
+          - Mac系统完美适配
+          - A股量化交易支持
+          - 增强策略模板
+          - 多进程策略执行
+          - 历史数据管理
+          - 优化指标计算
+          
+          如有问题，请查看使用说明文档。
+          ============================================
+          EOF
+          
           # 检查create-dmg是否可用
           if ! command -v create-dmg &> /dev/null; then
-            echo "⚠️  create-dmg未安装，尝试使用hdiutil创建DMG"
-            # 使用系统自带的hdiutil创建DMG
+            echo "⚠️  create-dmg未安装，使用hdiutil创建DMG（带安装界面）"
+            
+            # 使用hdiutil创建临时DMG
             hdiutil create -volname "VNPY优化版-Mac" \
-              -srcfolder VNPY.app \
-              -ov -format UDZO \
-              "VNPY-Mac-Optimized.dmg"
+              -srcfolder dmg-contents \
+              -ov -format UDRW \
+              "VNPY-Mac-Optimized-temp.dmg"
+            
+            # 挂载临时DMG
+            hdiutil attach "VNPY-Mac-Optimized-temp.dmg" -mountpoint /Volumes/VNPY优化版-Mac
+            
+            # 设置DMG窗口属性（使用AppleScript）
+            osascript << 'APPLESCRIPT'
+            tell application "Finder"
+              tell disk "VNPY优化版-Mac"
+                open
+                set current view of container window to icon view
+                set toolbar visible of container window to false
+                set statusbar visible of container window to false
+                set the bounds of container window to {200, 120, 1000, 720}
+                set viewOptions to the icon view options of container window
+                set arrangement of viewOptions to not arranged
+                set icon size of viewOptions to 100
+                set position of item "VNPY.app" of container window to {200, 300}
+                set position of item "Applications" of container window to {600, 300}
+                set position of item "README.txt" of container window to {400, 500}
+                close
+                open
+                update without registering applications
+                delay 2
+              end tell
+            end tell
+            APPLESCRIPT
+            
+            # 卸载
+            hdiutil detach /Volumes/VNPY优化版-Mac
+            
+            # 转换为压缩格式
+            hdiutil convert "VNPY-Mac-Optimized-temp.dmg" \
+              -format UDZO \
+              -o "VNPY-Mac-Optimized.dmg"
+            
+            # 清理临时文件
+            rm -f "VNPY-Mac-Optimized-temp.dmg"
           else
             # 使用create-dmg创建更美观的DMG
             create-dmg \
@@ -144,17 +244,22 @@ jobs:
               --window-pos 200 120 \
               --window-size 800 600 \
               --icon-size 100 \
-              --icon VNPY.app 200 300 \
-              --hide-extension VNPY.app \
+              --icon "VNPY.app" 200 300 \
+              --hide-extension "VNPY.app" \
               --app-drop-link 600 300 \
+              --hdiutil-quiet \
               "VNPY-Mac-Optimized.dmg" \
-              ./
+              dmg-contents/
           fi
           
           # 验证DMG文件
           if [ -f "VNPY-Mac-Optimized.dmg" ]; then
             echo "✅ DMG创建成功"
             ls -lh VNPY-Mac-Optimized.dmg
+            echo "DMG内容："
+            hdiutil attach VNPY-Mac-Optimized.dmg -mountpoint /Volumes/VNPY-TEST -quiet 2>/dev/null || true
+            ls -la /Volumes/VNPY-TEST/ 2>/dev/null || true
+            hdiutil detach /Volumes/VNPY-TEST -quiet 2>/dev/null || true
           else
             echo "❌ DMG创建失败"
             exit 1
