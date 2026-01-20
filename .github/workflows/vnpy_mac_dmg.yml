@@ -1,547 +1,202 @@
-# VNPY 纯Mac版dmg GitHub Actions自动打包
+# VNPY Mac版 DMG 自动打包
+# 使用最简单可靠的方法：命令行参数 + --onefile 模式
 name: VNPY Mac DMG Auto Build
 
-# 触发规则：1.推送到main分支自动打包 2.手动触发（推荐）
 on:
   push:
-    branches: [ main ]  # 【需修改】可改为你的开发分支，如dev
-  workflow_dispatch:    # 手动触发开关，保留！
+    branches: [ main ]
+  workflow_dispatch:
 
-# 仅执行Mac打包作业
 jobs:
   build-mac-dmg:
-    runs-on: macos-14  # 使用macos-14，资源更充足，排队时间更短
+    runs-on: macos-14
+    
     steps:
-      # 步骤1：拉取仓库中的VNPY优化源码
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      # 步骤2：配置Python3.10环境（VNPY新版本要求>=3.10）
       - name: Set Up Python 3.10
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          cache: 'pip'  # 缓存依赖，大幅加速后续打包
+          cache: 'pip'
 
-      # 步骤3：安装所有依赖（VNPY+打包工具+底层依赖）
-      - name: Install All Dependencies
+      - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          
-          # 安装VNPY（使用开发模式，包含所有修改）
           pip install -e .
-          
-          # 安装打包工具
           pip install pyinstaller
-          
-          # 安装图标处理工具（Pillow用于图标转换）
-          pip install Pillow || echo "Pillow安装失败，将尝试其他方法..."
-          
-          # 安装create-dmg（Mac DMG制作工具）
-          brew install create-dmg || echo "create-dmg安装失败，尝试继续..."
-          
-          # 安装TA-Lib（VNPY必备）
-          brew install ta-lib || echo "ta-lib可能已安装或需要手动处理"
-          
-          # 安装可选依赖（用于Alpha策略等）
-          pip install polars pandas numpy matplotlib || echo "可选依赖安装失败，继续..."
-          
-          # 验证关键依赖
-          python -c "import vnpy; import loguru; import tzlocal; print('✅ 核心依赖验证通过')"
-          python -c "import polars; print('✅ polars已安装')" || echo "⚠️  polars未安装（Alpha策略需要）"
-          python -c "from PIL import Image; print('✅ Pillow已安装（图标处理）')" || echo "⚠️  Pillow未安装（图标转换可能失败）"
+          pip install Pillow
+          brew install create-dmg || true
+          brew install ta-lib || true
+          pip install polars pandas numpy matplotlib || true
+          python -c "import vnpy; print('VNPY installed')"
+          python -c "import PySide6; print('PySide6 installed')"
 
-      # 步骤4：PyInstaller打包为Mac可执行文件
-      - name: Package VNPY via PyInstaller
+      - name: Build App with PyInstaller
         run: |
-          # 尝试两种方案：
-          # 1. 先尝试--onefile模式（更简单可靠）
-          # 2. 如果失败，回退到--onedir模式
+          echo "=========================================="
+          echo "PyInstaller Build"
+          echo "=========================================="
           
-          echo "尝试方案1：--onefile模式（推荐，更简单可靠）"
-          if pyinstaller vnpy_mac_simple.spec 2>&1 | tee pyinstaller.log; then
-            echo "✅ --onefile模式打包成功"
-            PACKAGE_MODE="onefile"
-          else
-            echo "⚠️  --onefile模式失败，尝试--onedir模式"
-            if pyinstaller vnpy_mac.spec 2>&1 | tee pyinstaller.log; then
-              echo "✅ --onedir模式打包成功"
-              PACKAGE_MODE="onedir"
-            else
-              echo "❌ 两种模式都失败"
-              cat pyinstaller.log
-              exit 1
-            fi
-          fi
+          pyinstaller \
+            --onefile \
+            --windowed \
+            --name "VNPY-Optimized" \
+            --add-data "vnpy:vnpy" \
+            --hidden-import vnpy \
+            --hidden-import vnpy.trader \
+            --hidden-import vnpy.trader.ui \
+            --hidden-import vnpy.event \
+            --hidden-import PySide6 \
+            --hidden-import PySide6.QtCore \
+            --hidden-import PySide6.QtGui \
+            --hidden-import PySide6.QtWidgets \
+            --hidden-import qdarkstyle \
+            --hidden-import loguru \
+            --hidden-import tzlocal \
+            --collect-all PySide6 \
+            --collect-all qdarkstyle \
+            vnpy_launcher.py
           
-          echo "使用的打包模式: $PACKAGE_MODE"
+          echo ""
+          echo "=========================================="
+          echo "Verify Build Output"
+          echo "=========================================="
           
-          # 验证打包结果（两种模式都生成.app）
-          echo "检查打包结果..."
+          echo "dist directory:"
+          ls -la dist/
+          
           if [ -d "dist/VNPY-Optimized.app" ]; then
-            echo "✅ PyInstaller已创建.app结构"
-            echo ".app结构："
-            ls -la dist/VNPY-Optimized.app/Contents/
-            echo ""
-            echo "MacOS目录："
-            ls -la dist/VNPY-Optimized.app/Contents/MacOS/ | head -10
-            echo ""
-            echo "验证可执行文件："
-            if [ -f "dist/VNPY-Optimized.app/Contents/MacOS/VNPY-Optimized" ]; then
-              echo "✅ 可执行文件存在"
-              file dist/VNPY-Optimized.app/Contents/MacOS/VNPY-Optimized
-              chmod +x dist/VNPY-Optimized.app/Contents/MacOS/VNPY-Optimized
-            else
-              echo "❌ 可执行文件不存在"
-              echo "MacOS目录内容："
-              ls -la dist/VNPY-Optimized.app/Contents/MacOS/
-              exit 1
-            fi
-            echo ""
-            echo "验证Info.plist："
-            if [ -f "dist/VNPY-Optimized.app/Contents/Info.plist" ]; then
-              echo "✅ Info.plist存在"
-              plutil -lint dist/VNPY-Optimized.app/Contents/Info.plist
-              echo "CFBundleExecutable:"
-              /usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" dist/VNPY-Optimized.app/Contents/Info.plist 2>/dev/null || echo "无法读取"
-            else
-              echo "❌ Info.plist不存在"
-              exit 1
-            fi
+            echo "APP created successfully"
+            echo "Contents:"
+            ls -la "dist/VNPY-Optimized.app/Contents/"
+            echo "MacOS:"
+            ls -la "dist/VNPY-Optimized.app/Contents/MacOS/"
+            echo "Info.plist:"
+            cat "dist/VNPY-Optimized.app/Contents/Info.plist"
+            plutil -lint "dist/VNPY-Optimized.app/Contents/Info.plist"
+            /usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "dist/VNPY-Optimized.app/Contents/Info.plist"
+            file "dist/VNPY-Optimized.app/Contents/MacOS/"*
           else
-            echo "❌ PyInstaller未创建.app"
-            echo "dist目录内容："
+            echo "No .app found, checking for executable..."
             ls -la dist/
-            exit 1
+            
+            if [ -f "dist/VNPY-Optimized" ]; then
+              echo "Found executable, creating .app structure manually..."
+              mkdir -p "dist/VNPY-Optimized.app/Contents/MacOS"
+              mkdir -p "dist/VNPY-Optimized.app/Contents/Resources"
+              cp "dist/VNPY-Optimized" "dist/VNPY-Optimized.app/Contents/MacOS/"
+              chmod +x "dist/VNPY-Optimized.app/Contents/MacOS/VNPY-Optimized"
+              
+              printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' \
+                '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
+                '<plist version="1.0">' \
+                '<dict>' \
+                '    <key>CFBundleExecutable</key>' \
+                '    <string>VNPY-Optimized</string>' \
+                '    <key>CFBundleIdentifier</key>' \
+                '    <string>com.vnpy.optimized</string>' \
+                '    <key>CFBundleName</key>' \
+                '    <string>VNPY</string>' \
+                '    <key>CFBundleDisplayName</key>' \
+                '    <string>VNPY</string>' \
+                '    <key>CFBundleVersion</key>' \
+                '    <string>1.0.0</string>' \
+                '    <key>CFBundleShortVersionString</key>' \
+                '    <string>1.0</string>' \
+                '    <key>CFBundlePackageType</key>' \
+                '    <string>APPL</string>' \
+                '    <key>LSMinimumSystemVersion</key>' \
+                '    <string>10.15</string>' \
+                '    <key>NSHighResolutionCapable</key>' \
+                '    <true/>' \
+                '</dict>' \
+                '</plist>' > "dist/VNPY-Optimized.app/Contents/Info.plist"
+              
+              echo "Manual .app structure created"
+              ls -la "dist/VNPY-Optimized.app/Contents/"
+              ls -la "dist/VNPY-Optimized.app/Contents/MacOS/"
+            else
+              echo "Build failed - no executable found"
+              exit 1
+            fi
           fi
 
-      # 步骤5：整理Mac标准.app目录结构（PyInstaller已通过spec文件创建）
-      - name: Organize Mac App Structure
+      - name: Prepare App for DMG
         run: |
-          # PyInstaller使用spec文件已创建.app结构
-          # 检查PyInstaller是否已创建.app
-          if [ -d "dist/VNPY-Optimized.app" ]; then
-            echo "✅ PyInstaller已创建.app结构"
-            # 重命名为VNPY.app
-            rm -rf VNPY.app
-            cp -R dist/VNPY-Optimized.app VNPY.app
-            echo "✅ .app已复制为VNPY.app"
+          echo "Preparing .app for DMG..."
+          
+          rm -rf VNPY.app
+          cp -R "dist/VNPY-Optimized.app" VNPY.app
+          
+          echo "VNPY.app structure:"
+          ls -la VNPY.app/Contents/
+          ls -la VNPY.app/Contents/MacOS/
+          
+          EXEC_NAME=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" VNPY.app/Contents/Info.plist 2>/dev/null || echo "VNPY-Optimized")
+          echo "CFBundleExecutable: $EXEC_NAME"
+          
+          if [ -f "VNPY.app/Contents/MacOS/$EXEC_NAME" ]; then
+            echo "Executable exists: VNPY.app/Contents/MacOS/$EXEC_NAME"
+            file "VNPY.app/Contents/MacOS/$EXEC_NAME"
+            chmod +x "VNPY.app/Contents/MacOS/$EXEC_NAME"
           else
-            echo "❌ PyInstaller未创建.app，检查dist目录："
-            ls -la dist/
-            echo ""
-            echo "查找.app文件："
-            find dist -name "*.app" -type d
-            exit 1
-          fi
-          
-          # 验证.app结构和可执行文件
-          echo "验证.app结构..."
-          if [ ! -d "VNPY.app/Contents" ]; then
-            echo "❌ .app结构不正确，缺少Contents目录"
-            exit 1
-          fi
-          
-          if [ ! -d "VNPY.app/Contents/MacOS" ]; then
-            echo "❌ .app结构不正确，缺少MacOS目录"
-            exit 1
-          fi
-          
-          if [ ! -f "VNPY.app/Contents/Info.plist" ]; then
-            echo "❌ Info.plist不存在"
-            exit 1
-          fi
-          
-          # 首先读取Info.plist中的CFBundleExecutable（PyInstaller设置的）
-          PLIST_EXEC=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" VNPY.app/Contents/Info.plist 2>/dev/null || echo "")
-          echo "Info.plist中的CFBundleExecutable: '$PLIST_EXEC'"
-          
-          # 查找MacOS目录中的可执行文件
-          echo "查找MacOS目录中的可执行文件..."
-          ls -la VNPY.app/Contents/MacOS/ | head -10
-          
-          # 查找所有可执行文件
-          EXECUTABLE=$(find VNPY.app/Contents/MacOS -maxdepth 1 -type f -perm +111 2>/dev/null | head -1)
-          if [ -z "$EXECUTABLE" ]; then
-            # 如果没找到可执行文件，查找所有文件
-            EXECUTABLE=$(find VNPY.app/Contents/MacOS -maxdepth 1 -type f ! -name ".*" 2>/dev/null | head -1)
-          fi
-          
-          if [ -n "$EXECUTABLE" ]; then
-            ACTUAL_EXEC_NAME=$(basename "$EXECUTABLE")
-            echo "✅ 找到可执行文件: $ACTUAL_EXEC_NAME"
-            
-            # 如果Info.plist中的名称与实际文件不一致，更新Info.plist
-            if [ "$PLIST_EXEC" != "$ACTUAL_EXEC_NAME" ]; then
-              echo "⚠️  Info.plist中的可执行文件名称($PLIST_EXEC)与实际文件($ACTUAL_EXEC_NAME)不一致"
-              echo "更新Info.plist..."
-              /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable '$ACTUAL_EXEC_NAME'" VNPY.app/Contents/Info.plist
-              echo "✅ Info.plist已更新为: $ACTUAL_EXEC_NAME"
-            fi
-            
-            # 确保可执行文件有执行权限
-            chmod +x "$EXECUTABLE"
-            echo "✅ 可执行文件权限已设置"
-            
-            # 验证可执行文件
-            echo "可执行文件信息："
-            file "$EXECUTABLE"
-            ls -lh "$EXECUTABLE"
-          else
-            echo "❌ 未找到可执行文件"
-            echo "MacOS目录完整内容："
+            echo "ERROR: Executable not found!"
+            echo "MacOS directory contents:"
             ls -la VNPY.app/Contents/MacOS/
             exit 1
           fi
           
-          # 最终验证：确保Info.plist中的可执行文件存在
-          FINAL_EXEC=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" VNPY.app/Contents/Info.plist 2>/dev/null || echo "")
-          if [ -n "$FINAL_EXEC" ] && [ -f "VNPY.app/Contents/MacOS/$FINAL_EXEC" ]; then
-            echo "✅ 最终验证通过: Info.plist中的可执行文件存在"
-            chmod +x "VNPY.app/Contents/MacOS/$FINAL_EXEC"
-          else
-            echo "❌ 最终验证失败: Info.plist中的可执行文件不存在"
-            echo "CFBundleExecutable: '$FINAL_EXEC'"
-            echo "MacOS目录内容："
-            ls -la VNPY.app/Contents/MacOS/
-            exit 1
-          fi
-          
-          echo "✅ .app结构验证通过"
-          
-          # 创建应用图标（从.ico转换为.icns）
-          echo "创建应用图标..."
-          if [ -f "vnpy/trader/ui/ico/vnpy.ico" ]; then
-            # 创建临时图标目录
-            mkdir -p icon_temp.iconset
-            
-            # 创建Python脚本文件来转换图标（使用printf避免heredoc缩进问题）
-            printf '%s\n' \
-              'import sys' \
-              'from PIL import Image' \
-              'import os' \
-              '' \
-              'try:' \
-              '    ico_path = "vnpy/trader/ui/ico/vnpy.ico"' \
-              '    if os.path.exists(ico_path):' \
-              '        img = Image.open(ico_path)' \
-              '        sizes = [' \
-              '            (16, 16, "icon_16x16.png"),' \
-              '            (32, 32, "icon_16x16@2x.png"),' \
-              '            (32, 32, "icon_32x32.png"),' \
-              '            (64, 64, "icon_32x32@2x.png"),' \
-              '            (128, 128, "icon_128x128.png"),' \
-              '            (256, 256, "icon_128x128@2x.png"),' \
-              '            (256, 256, "icon_256x256.png"),' \
-              '            (512, 512, "icon_256x256@2x.png"),' \
-              '            (512, 512, "icon_512x512.png"),' \
-              '            (1024, 1024, "icon_512x512@2x.png"),' \
-              '        ]' \
-              '        os.makedirs("icon_temp.iconset", exist_ok=True)' \
-              '        for w, h, name in sizes:' \
-              '            resized = img.resize((w, h), Image.Resampling.LANCZOS)' \
-              '            resized.save(f"icon_temp.iconset/{name}", "PNG")' \
-              '        print("✅ 图标PNG文件已生成")' \
-              '    else:' \
-              '        print("⚠️  vnpy.ico不存在，跳过图标生成")' \
-              'except Exception as e:' \
-              '    print(f"⚠️  图标转换失败: {e}")' \
-              '    import subprocess' \
-              '    try:' \
-              '        subprocess.run(["sips", "-s", "format", "png", "--out", "icon_temp.iconset/icon_512x512.png", ico_path], check=True)' \
-              '        print("✅ 使用sips转换图标")' \
-              '    except:' \
-              '        print("⚠️  无法转换图标，将使用默认图标")' > convert_icon.py
-            
-            # 运行Python脚本
-            python3 convert_icon.py || echo "⚠️  Python图标转换失败，尝试使用sips..."
-            rm -f convert_icon.py
-            
-            # 如果Python转换失败，尝试使用sips直接转换
-            if [ ! -d "icon_temp.iconset" ] || [ -z "$(ls -A icon_temp.iconset 2>/dev/null)" ]; then
-              echo "尝试使用sips转换图标..."
-              sips -s format png vnpy/trader/ui/ico/vnpy.ico --out icon_temp.iconset/icon_512x512.png 2>/dev/null || echo "⚠️  sips转换也失败"
-            fi
-            
-            # 使用iconutil生成.icns文件
-            if [ -d "icon_temp.iconset" ] && [ "$(ls -A icon_temp.iconset)" ]; then
-              iconutil -c icns icon_temp.iconset -o VNPY.app/Contents/Resources/vnpy.icns 2>/dev/null || {
-                echo "⚠️  iconutil失败，尝试其他方法..."
-                # 如果iconutil失败，至少复制一个PNG作为备用
-                if [ -f "icon_temp.iconset/icon_512x512.png" ]; then
-                  cp icon_temp.iconset/icon_512x512.png VNPY.app/Contents/Resources/vnpy.png
-                fi
-              }
-              rm -rf icon_temp.iconset
-              echo "✅ 应用图标已创建"
-            else
-              echo "⚠️  图标目录为空，跳过图标创建"
-            fi
-          else
-            echo "⚠️  vnpy.ico不存在，跳过图标创建"
-          fi
-          
-          # 复制UI图标资源到MacOS目录（确保UI图标可用）
-          if [ -d "vnpy/trader/ui/ico" ]; then
-            echo "复制UI图标资源..."
-            mkdir -p VNPY.app/Contents/MacOS/vnpy/trader/ui/ico
-            cp -r vnpy/trader/ui/ico/* VNPY.app/Contents/MacOS/vnpy/trader/ui/ico/ 2>/dev/null || true
-            echo "✅ UI图标资源已复制"
-          fi
-          
-          # 验证图标资源
-          if [ -d "VNPY.app/Contents/MacOS/vnpy/trader/ui/ico" ]; then
-            ICON_COUNT=$(find VNPY.app/Contents/MacOS/vnpy/trader/ui/ico -name "*.ico" | wc -l)
-            echo "✅ 图标资源验证: 找到 $ICON_COUNT 个图标文件"
-          fi
-          
-          # 验证应用图标
-          if [ -f "VNPY.app/Contents/Resources/vnpy.icns" ]; then
-            echo "✅ 应用图标文件已创建: vnpy.icns"
-          elif [ -f "VNPY.app/Contents/Resources/vnpy.png" ]; then
-            echo "✅ 应用图标文件已创建: vnpy.png（备用）"
-          else
-            echo "⚠️  应用图标文件未创建，将使用默认图标"
-          fi
-          
-          # 更新Info.plist（PyInstaller已创建，我们只需要添加图标和优化配置）
-          # 使用plutil更新Info.plist（更安全，不会破坏现有配置）
-          if [ -f "VNPY.app/Contents/Info.plist" ]; then
-            echo "✅ Info.plist已存在，更新配置..."
-            
-            # 首先验证CFBundleExecutable是否正确
-            CURRENT_EXEC=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" VNPY.app/Contents/Info.plist 2>/dev/null || echo "")
-            echo "当前CFBundleExecutable: $CURRENT_EXEC"
-            
-            # 确保CFBundleExecutable指向正确的可执行文件
-            if [ -f "VNPY.app/Contents/MacOS/VNPY-Optimized" ]; then
-              /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable 'VNPY-Optimized'" VNPY.app/Contents/Info.plist 2>/dev/null || \
-              /usr/libexec/PlistBuddy -c "Add :CFBundleExecutable string 'VNPY-Optimized'" VNPY.app/Contents/Info.plist 2>/dev/null || true
-              echo "✅ CFBundleExecutable已设置为VNPY-Optimized"
-            else
-              echo "⚠️  可执行文件VNPY-Optimized不存在，使用Info.plist中的配置"
-            fi
-            
-            # 验证可执行文件是否存在
-            EXEC_NAME=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" VNPY.app/Contents/Info.plist 2>/dev/null || echo "VNPY-Optimized")
-            if [ ! -f "VNPY.app/Contents/MacOS/$EXEC_NAME" ]; then
-              echo "❌ 错误：Info.plist中的可执行文件不存在: $EXEC_NAME"
-              echo "MacOS目录中的文件："
-              ls -la VNPY.app/Contents/MacOS/
-              exit 1
-            fi
-            echo "✅ 可执行文件验证通过: $EXEC_NAME"
-            
-            # 更新应用名称
-            /usr/libexec/PlistBuddy -c "Set :CFBundleName 'VNPY优化版'" VNPY.app/Contents/Info.plist 2>/dev/null || \
-            /usr/libexec/PlistBuddy -c "Add :CFBundleName string 'VNPY优化版'" VNPY.app/Contents/Info.plist 2>/dev/null || true
-            
-            # 更新Bundle Identifier
-            /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier 'com.vnpy.optimized'" VNPY.app/Contents/Info.plist 2>/dev/null || \
-            /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string 'com.vnpy.optimized'" VNPY.app/Contents/Info.plist 2>/dev/null || true
-            
-            # 添加图标配置（如果图标存在）
-            if [ -f "VNPY.app/Contents/Resources/vnpy.icns" ]; then
-              /usr/libexec/PlistBuddy -c "Set :CFBundleIconFile 'vnpy.icns'" VNPY.app/Contents/Info.plist 2>/dev/null || \
-              /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string 'vnpy.icns'" VNPY.app/Contents/Info.plist 2>/dev/null || true
-              echo "✅ 图标配置已添加"
-            elif [ -f "VNPY.app/Contents/Resources/vnpy.png" ]; then
-              /usr/libexec/PlistBuddy -c "Set :CFBundleIconFile 'vnpy.png'" VNPY.app/Contents/Info.plist 2>/dev/null || \
-              /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string 'vnpy.png'" VNPY.app/Contents/Info.plist 2>/dev/null || true
-              echo "✅ 图标配置已添加（PNG）"
-            fi
-            
-            # 添加环境变量
-            /usr/libexec/PlistBuddy -c "Add :LSEnvironment dict" VNPY.app/Contents/Info.plist 2>/dev/null || true
-            /usr/libexec/PlistBuddy -c "Add :LSEnvironment:PYTHONUNBUFFERED string '1'" VNPY.app/Contents/Info.plist 2>/dev/null || \
-            /usr/libexec/PlistBuddy -c "Set :LSEnvironment:PYTHONUNBUFFERED '1'" VNPY.app/Contents/Info.plist 2>/dev/null || true
-            
-            # 最终验证Info.plist和可执行文件
-            echo ""
-            echo "最终验证："
-            plutil -lint VNPY.app/Contents/Info.plist && echo "✅ Info.plist格式正确" || echo "❌ Info.plist格式错误"
-            FINAL_EXEC=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" VNPY.app/Contents/Info.plist 2>/dev/null || echo "")
-            echo "CFBundleExecutable: $FINAL_EXEC"
-            if [ -f "VNPY.app/Contents/MacOS/$FINAL_EXEC" ]; then
-              echo "✅ 可执行文件存在: VNPY.app/Contents/MacOS/$FINAL_EXEC"
-              chmod +x "VNPY.app/Contents/MacOS/$FINAL_EXEC"
-            else
-              echo "❌ 可执行文件不存在: VNPY.app/Contents/MacOS/$FINAL_EXEC"
-              exit 1
-            fi
-          else
-            echo "❌ Info.plist不存在，PyInstaller应该已创建"
-            exit 1
-          fi
-          
-          # 最终验证.app结构
-          echo "验证.app结构..."
-          if [ -f "VNPY.app/Contents/MacOS/VNPY-Optimized" ]; then
-            echo "✅ .app结构创建成功"
-            echo ""
-            echo "可执行文件信息："
-            ls -lh VNPY.app/Contents/MacOS/VNPY-Optimized
-            file VNPY.app/Contents/MacOS/VNPY-Optimized
-            echo ""
-            echo "MacOS目录内容："
-            ls -lh VNPY.app/Contents/MacOS/ | head -10
-            echo ""
-            echo "验证Info.plist："
-            if [ -f "VNPY.app/Contents/Info.plist" ]; then
-              echo "✅ Info.plist存在"
-              plutil -lint VNPY.app/Contents/Info.plist || echo "⚠️  Info.plist格式可能有问题"
-              echo "CFBundleExecutable:"
-              /usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" VNPY.app/Contents/Info.plist 2>/dev/null || echo "无法读取"
-            else
-              echo "❌ Info.plist不存在！"
-              exit 1
-            fi
-            chmod +x VNPY.app/Contents/MacOS/VNPY-Optimized
-            file VNPY.app/Contents/MacOS/VNPY-Optimized
-            ls -lh VNPY.app/Contents/MacOS/VNPY-Optimized
-          else
-            echo "❌ .app结构创建失败"
-            echo "VNPY.app/Contents/MacOS/ 目录内容："
-            ls -la VNPY.app/Contents/MacOS/ || true
-            echo ""
-            echo "dist/VNPY-Optimized/ 目录内容："
-            ls -la dist/VNPY-Optimized/ || true
-            exit 1
-          fi
-          
-          # 验证Info.plist
-          if [ -f "VNPY.app/Contents/Info.plist" ]; then
-            echo "✅ Info.plist 已创建"
-          else
-            echo "❌ Info.plist 未创建"
-            exit 1
-          fi
+          echo "Code signing..."
+          codesign --force --deep --sign - VNPY.app || echo "Signing failed, continuing..."
 
-      # 步骤6：制作dmg镜像（Mac安装包，带标准安装界面）
-      - name: Build DMG Image
+      - name: Build DMG
         run: |
-          # 创建DMG内容目录
+          echo "Creating DMG..."
+          
           mkdir -p dmg-contents
-          
-          # 复制.app到DMG目录
           cp -R VNPY.app dmg-contents/
-          
-          # 创建Applications文件夹的快捷方式（拖拽目标）
           ln -s /Applications dmg-contents/Applications
           
-          # 创建README文件（安装说明）
           printf '%s\n' \
-            '============================================' \
-            'VNPY Mac优化版 - 安装说明' \
-            '============================================' \
-            '' \
-            '📦 安装步骤：' \
-            '1. 将 VNPY.app 拖拽到 Applications 文件夹' \
-            '2. 在终端执行以下命令（解决安全提示）：' \
-            '   xattr -d com.apple.quarantine /Applications/VNPY.app' \
-            '3. 现在可以正常双击打开 VNPY优化版了！' \
-            '' \
-            '🔒 安全提示处理（三种方法任选其一）：' \
-            '方法1（推荐）：在终端执行：' \
-            '   xattr -d com.apple.quarantine /Applications/VNPY.app' \
-            '' \
-            '方法2：右键点击 VNPY.app -> 选择"打开"' \
-            '' \
-            '方法3：系统设置 -> 隐私与安全性 -> 点击"仍要打开"' \
-            '' \
-            '💻 系统要求：' \
-            '- macOS 10.15 (Catalina) 或更高版本' \
-            '- Apple Silicon (M1/M2/M3) 或 Intel 处理器' \
-            '' \
-            '✨ 功能特性：' \
-            '- Mac系统完美适配' \
-            '- A股量化交易支持' \
-            '- 增强策略模板' \
-            '- 多进程策略执行' \
-            '- 历史数据管理' \
-            '- 优化指标计算' \
-            '' \
-            '📖 更多帮助：' \
-            '- 查看 Mac安全验证处理指南.md 了解详细说明' \
-            '- 如有问题，请查看使用说明文档' \
-            '' \
-            '============================================' > dmg-contents/README.txt
+            "VNPY Mac Quantitative Trading System" \
+            "====================================" \
+            "" \
+            "Installation:" \
+            "1. Drag VNPY.app to Applications folder" \
+            "2. Right-click -> Open for first run" \
+            "" \
+            "If you see security warning, run in Terminal:" \
+            "xattr -d com.apple.quarantine /Applications/VNPY.app" > dmg-contents/README.txt
           
-          # 检查create-dmg是否可用
-          if ! command -v create-dmg &> /dev/null; then
-            echo "⚠️  create-dmg未安装，使用hdiutil创建DMG（带安装界面）"
-            
-            # 使用hdiutil创建临时DMG
-            hdiutil create -volname "VNPY优化版-Mac" \
-              -srcfolder dmg-contents \
-              -ov -format UDRW \
-              "VNPY-Mac-Optimized-temp.dmg"
-            
-            # 挂载临时DMG
-            hdiutil attach "VNPY-Mac-Optimized-temp.dmg" -mountpoint /Volumes/VNPY优化版-Mac
-            
-            # 设置DMG窗口属性（使用AppleScript）
-            osascript -e 'tell application "Finder"' \
-              -e '  tell disk "VNPY优化版-Mac"' \
-              -e '    open' \
-              -e '    set current view of container window to icon view' \
-              -e '    set toolbar visible of container window to false' \
-              -e '    set statusbar visible of container window to false' \
-              -e '    set the bounds of container window to {200, 120, 1000, 720}' \
-              -e '    set viewOptions to the icon view options of container window' \
-              -e '    set arrangement of viewOptions to not arranged' \
-              -e '    set icon size of viewOptions to 100' \
-              -e '    set position of item "VNPY.app" of container window to {200, 300}' \
-              -e '    set position of item "Applications" of container window to {600, 300}' \
-              -e '    set position of item "README.txt" of container window to {400, 500}' \
-              -e '    close' \
-              -e '    open' \
-              -e '    update without registering applications' \
-              -e '    delay 2' \
-              -e '  end tell' \
-              -e 'end tell'
-            
-            # 卸载
-            hdiutil detach /Volumes/VNPY优化版-Mac
-            
-            # 转换为压缩格式
-            hdiutil convert "VNPY-Mac-Optimized-temp.dmg" \
-              -format UDZO \
-              -o "VNPY-Mac-Optimized.dmg"
-            
-            # 清理临时文件
-            rm -f "VNPY-Mac-Optimized-temp.dmg"
-          else
-            # 使用create-dmg创建更美观的DMG
+          if command -v create-dmg > /dev/null 2>&1; then
+            echo "Using create-dmg..."
             create-dmg \
-              --volname "VNPY优化版-Mac" \
+              --volname "VNPY Mac" \
               --window-pos 200 120 \
-              --window-size 800 600 \
+              --window-size 600 400 \
               --icon-size 100 \
-              --icon "VNPY.app" 200 300 \
-              --hide-extension "VNPY.app" \
-              --app-drop-link 600 300 \
-              --hdiutil-quiet \
+              --icon "VNPY.app" 150 200 \
+              --app-drop-link 450 200 \
               "VNPY-Mac-Optimized.dmg" \
-              dmg-contents/
+              dmg-contents/ || hdiutil create -volname "VNPY Mac" -srcfolder dmg-contents -ov -format UDZO "VNPY-Mac-Optimized.dmg"
+          else
+            echo "Using hdiutil..."
+            hdiutil create -volname "VNPY Mac" -srcfolder dmg-contents -ov -format UDZO "VNPY-Mac-Optimized.dmg"
           fi
           
-          # 验证DMG文件
           if [ -f "VNPY-Mac-Optimized.dmg" ]; then
-            echo "✅ DMG创建成功"
+            echo "DMG created successfully"
             ls -lh VNPY-Mac-Optimized.dmg
-            echo "DMG内容："
-            hdiutil attach VNPY-Mac-Optimized.dmg -mountpoint /Volumes/VNPY-TEST -quiet 2>/dev/null || true
-            ls -la /Volumes/VNPY-TEST/ 2>/dev/null || true
-            hdiutil detach /Volumes/VNPY-TEST -quiet 2>/dev/null || true
           else
-            echo "❌ DMG创建失败"
+            echo "DMG creation failed"
             exit 1
           fi
 
-      # 步骤7：上传dmg产物（可在GitHub直接下载）
       - name: Upload DMG Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: VNPY-Mac-DMG  # 产物在Action页面的显示名称
-          path: ./VNPY-Mac-Optimized.dmg  # 对应步骤6的dmg文件名
+          name: VNPY-Mac-DMG
+          path: VNPY-Mac-Optimized.dmg
+          if-no-files-found: error
