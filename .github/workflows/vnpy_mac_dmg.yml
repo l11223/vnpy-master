@@ -54,92 +54,63 @@ jobs:
       # 步骤4：PyInstaller打包为Mac可执行文件
       - name: Package VNPY via PyInstaller
         run: |
-          # 使用--windowed和--onedir让PyInstaller自动创建.app结构
-          # --windowed: 创建GUI应用（.app bundle）
-          # --onedir: 目录模式，更稳定
-          # PyInstaller会自动创建正确的.app结构
-          pyinstaller \
-          --windowed \
-          --onedir \
-          --name VNPY-Optimized \
-          --add-data "vnpy:vnpy" \
-          --add-data "vnpy/trader/ui/ico:vnpy/trader/ui/ico" \
-          --hidden-import vnpy \
-          --hidden-import vnpy.trader \
-          --hidden-import vnpy.trader.platform_utils \
-          --hidden-import vnpy.trader.multiprocess_manager \
-          --hidden-import vnpy.trader.enhanced_cta_template \
-          --hidden-import vnpy.trader.history_manager \
-          --hidden-import vnpy.trader.data_filter \
-          --hidden-import vnpy.trader.optimization_metrics \
-          --hidden-import vnpy.trader.enhanced_risk_manager \
-          --hidden-import vnpy.trader.status_monitor \
-          --hidden-import vnpy.trader.gateway_mac_adapter \
-          --hidden-import vnpy.trader.multiprocess_backtester \
-          --hidden-import vnpy.trader.optimization_visualization \
-          --hidden-import vnpy.alpha \
-          --hidden-import vnpy.alpha.strategy \
-          --hidden-import vnpy.alpha.strategy.template \
-          --hidden-import vnpy.alpha.strategy.strategies \
-          --hidden-import vnpy.event \
-          --hidden-import vnpy.trader.engine \
-          --hidden-import vnpy.trader.ui \
-          --hidden-import vnpy.trader.ui.mainwindow \
-          --hidden-import vnpy.trader.ui.widget \
-          --hidden-import loguru \
-          --hidden-import tzlocal \
-          --hidden-import talib \
-          --hidden-import PySide6 \
-          --hidden-import PySide6.QtCore \
-          --hidden-import PySide6.QtGui \
-          --hidden-import PySide6.QtWidgets \
-          --hidden-import qdarkstyle \
-          --collect-all PySide6 \
-          --collect-all qdarkstyle \
-          --collect-all vnpy \
-          "vnpy_launcher.py"
+          # 使用spec文件确保正确的.app结构
+          # 根据PyInstaller官方文档，--onedir模式下BUNDLE必须接收COLLECT对象
+          # 使用spec文件可以精确控制这个结构
+          pyinstaller vnpy_mac.spec
           
           # 验证打包结果
-          if [ -d "dist/VNPY-Optimized" ]; then
-            echo "✅ PyInstaller打包成功"
-            echo "打包目录内容："
-            ls -lh dist/VNPY-Optimized/
+          echo "检查打包结果..."
+          if [ -d "dist/VNPY-Optimized.app" ]; then
+            echo "✅ PyInstaller已创建.app结构"
+            echo ".app结构："
+            ls -la dist/VNPY-Optimized.app/Contents/
             echo ""
-            echo "查找可执行文件："
-            find dist/VNPY-Optimized -type f -perm +111 -o -name "VNPY-Optimized" | head -10
+            echo "MacOS目录："
+            ls -la dist/VNPY-Optimized.app/Contents/MacOS/ | head -10
             echo ""
-            # 检查可执行文件
-            if [ -f "dist/VNPY-Optimized/VNPY-Optimized" ]; then
-              echo "✅ 找到可执行文件: dist/VNPY-Optimized/VNPY-Optimized"
-              chmod +x dist/VNPY-Optimized/VNPY-Optimized
+            echo "验证可执行文件："
+            if [ -f "dist/VNPY-Optimized.app/Contents/MacOS/VNPY-Optimized" ]; then
+              echo "✅ 可执行文件存在"
+              file dist/VNPY-Optimized.app/Contents/MacOS/VNPY-Optimized
+              chmod +x dist/VNPY-Optimized.app/Contents/MacOS/VNPY-Optimized
             else
-              echo "⚠️  可执行文件不在预期位置，查找中..."
-              EXEC=$(find dist/VNPY-Optimized -type f -perm +111 | head -1)
-              if [ -n "$EXEC" ]; then
-                echo "找到可执行文件: $EXEC"
-              else
-                echo "❌ 未找到可执行文件"
-                exit 1
-              fi
+              echo "❌ 可执行文件不存在"
+              echo "MacOS目录内容："
+              ls -la dist/VNPY-Optimized.app/Contents/MacOS/
+              exit 1
+            fi
+            echo ""
+            echo "验证Info.plist："
+            if [ -f "dist/VNPY-Optimized.app/Contents/Info.plist" ]; then
+              echo "✅ Info.plist存在"
+              plutil -lint dist/VNPY-Optimized.app/Contents/Info.plist
+              echo "CFBundleExecutable:"
+              /usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" dist/VNPY-Optimized.app/Contents/Info.plist 2>/dev/null || echo "无法读取"
+            else
+              echo "❌ Info.plist不存在"
+              exit 1
             fi
           else
-            echo "❌ PyInstaller打包失败"
+            echo "❌ PyInstaller未创建.app"
+            echo "dist目录内容："
+            ls -la dist/
             exit 1
           fi
 
-      # 步骤5：整理Mac标准.app目录结构（PyInstaller已自动创建）
+      # 步骤5：整理Mac标准.app目录结构（PyInstaller已通过spec文件创建）
       - name: Organize Mac App Structure
         run: |
-          # PyInstaller使用--windowed会自动创建.app结构
+          # PyInstaller使用spec文件已创建.app结构
           # 检查PyInstaller是否已创建.app
           if [ -d "dist/VNPY-Optimized.app" ]; then
-            echo "✅ PyInstaller已自动创建.app结构"
+            echo "✅ PyInstaller已创建.app结构"
             # 重命名为VNPY.app
             rm -rf VNPY.app
-            mv dist/VNPY-Optimized.app VNPY.app
-            echo "✅ .app已重命名为VNPY.app"
+            cp -R dist/VNPY-Optimized.app VNPY.app
+            echo "✅ .app已复制为VNPY.app"
           else
-            echo "⚠️  PyInstaller未创建.app，检查dist目录："
+            echo "❌ PyInstaller未创建.app，检查dist目录："
             ls -la dist/
             echo ""
             echo "查找.app文件："
