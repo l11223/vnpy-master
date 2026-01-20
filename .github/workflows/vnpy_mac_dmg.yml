@@ -159,21 +159,41 @@ jobs:
             exit 1
           fi
           
-          if [ ! -f "VNPY.app/Contents/MacOS/VNPY-Optimized" ]; then
-            echo "❌ 可执行文件不存在"
-            echo "MacOS目录内容："
-            ls -la VNPY.app/Contents/MacOS/
-            exit 1
+          # 查找可执行文件（PyInstaller可能使用不同的名称）
+          EXECUTABLE_NAME=""
+          if [ -f "VNPY.app/Contents/MacOS/VNPY-Optimized" ]; then
+            EXECUTABLE_NAME="VNPY-Optimized"
+            echo "✅ 找到可执行文件: VNPY-Optimized"
+          else
+            # 查找MacOS目录中的可执行文件
+            EXECUTABLE=$(find VNPY.app/Contents/MacOS -maxdepth 1 -type f -perm +111 2>/dev/null | head -1)
+            if [ -n "$EXECUTABLE" ]; then
+              EXECUTABLE_NAME=$(basename "$EXECUTABLE")
+              echo "✅ 找到可执行文件: $EXECUTABLE_NAME"
+              # 如果名称不对，重命名
+              if [ "$EXECUTABLE_NAME" != "VNPY-Optimized" ]; then
+                mv "$EXECUTABLE" VNPY.app/Contents/MacOS/VNPY-Optimized
+                EXECUTABLE_NAME="VNPY-Optimized"
+                echo "✅ 已重命名为VNPY-Optimized"
+              fi
+            else
+              echo "❌ 可执行文件不存在"
+              echo "MacOS目录内容："
+              ls -la VNPY.app/Contents/MacOS/
+              exit 1
+            fi
           fi
           
-          echo "✅ .app结构验证通过"
-          echo "可执行文件信息："
-          file VNPY.app/Contents/MacOS/VNPY-Optimized
-          ls -lh VNPY.app/Contents/MacOS/VNPY-Optimized
-          
           # 确保可执行文件有执行权限
-          chmod +x VNPY.app/Contents/MacOS/VNPY-Optimized
+          chmod +x "VNPY.app/Contents/MacOS/$EXECUTABLE_NAME"
           echo "✅ 可执行文件权限已设置"
+          
+          # 验证可执行文件
+          echo "可执行文件信息："
+          file "VNPY.app/Contents/MacOS/$EXECUTABLE_NAME"
+          ls -lh "VNPY.app/Contents/MacOS/$EXECUTABLE_NAME"
+          
+          echo "✅ .app结构验证通过"
           
           # 创建应用图标（从.ico转换为.icns）
           echo "创建应用图标..."
@@ -275,6 +295,29 @@ jobs:
           if [ -f "VNPY.app/Contents/Info.plist" ]; then
             echo "✅ Info.plist已存在，更新配置..."
             
+            # 首先验证CFBundleExecutable是否正确
+            CURRENT_EXEC=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" VNPY.app/Contents/Info.plist 2>/dev/null || echo "")
+            echo "当前CFBundleExecutable: $CURRENT_EXEC"
+            
+            # 确保CFBundleExecutable指向正确的可执行文件
+            if [ -f "VNPY.app/Contents/MacOS/VNPY-Optimized" ]; then
+              /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable 'VNPY-Optimized'" VNPY.app/Contents/Info.plist 2>/dev/null || \
+              /usr/libexec/PlistBuddy -c "Add :CFBundleExecutable string 'VNPY-Optimized'" VNPY.app/Contents/Info.plist 2>/dev/null || true
+              echo "✅ CFBundleExecutable已设置为VNPY-Optimized"
+            else
+              echo "⚠️  可执行文件VNPY-Optimized不存在，使用Info.plist中的配置"
+            fi
+            
+            # 验证可执行文件是否存在
+            EXEC_NAME=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" VNPY.app/Contents/Info.plist 2>/dev/null || echo "VNPY-Optimized")
+            if [ ! -f "VNPY.app/Contents/MacOS/$EXEC_NAME" ]; then
+              echo "❌ 错误：Info.plist中的可执行文件不存在: $EXEC_NAME"
+              echo "MacOS目录中的文件："
+              ls -la VNPY.app/Contents/MacOS/
+              exit 1
+            fi
+            echo "✅ 可执行文件验证通过: $EXEC_NAME"
+            
             # 更新应用名称
             /usr/libexec/PlistBuddy -c "Set :CFBundleName 'VNPY优化版'" VNPY.app/Contents/Info.plist 2>/dev/null || \
             /usr/libexec/PlistBuddy -c "Add :CFBundleName string 'VNPY优化版'" VNPY.app/Contents/Info.plist 2>/dev/null || true
@@ -299,8 +342,19 @@ jobs:
             /usr/libexec/PlistBuddy -c "Add :LSEnvironment:PYTHONUNBUFFERED string '1'" VNPY.app/Contents/Info.plist 2>/dev/null || \
             /usr/libexec/PlistBuddy -c "Set :LSEnvironment:PYTHONUNBUFFERED '1'" VNPY.app/Contents/Info.plist 2>/dev/null || true
             
-            # 验证Info.plist
-            plutil -lint VNPY.app/Contents/Info.plist && echo "✅ Info.plist格式正确" || echo "⚠️  Info.plist格式可能有问题"
+            # 最终验证Info.plist和可执行文件
+            echo ""
+            echo "最终验证："
+            plutil -lint VNPY.app/Contents/Info.plist && echo "✅ Info.plist格式正确" || echo "❌ Info.plist格式错误"
+            FINAL_EXEC=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" VNPY.app/Contents/Info.plist 2>/dev/null || echo "")
+            echo "CFBundleExecutable: $FINAL_EXEC"
+            if [ -f "VNPY.app/Contents/MacOS/$FINAL_EXEC" ]; then
+              echo "✅ 可执行文件存在: VNPY.app/Contents/MacOS/$FINAL_EXEC"
+              chmod +x "VNPY.app/Contents/MacOS/$FINAL_EXEC"
+            else
+              echo "❌ 可执行文件不存在: VNPY.app/Contents/MacOS/$FINAL_EXEC"
+              exit 1
+            fi
           else
             echo "❌ Info.plist不存在，PyInstaller应该已创建"
             exit 1
