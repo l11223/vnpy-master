@@ -160,44 +160,43 @@ jobs:
             # 创建临时图标目录
             mkdir -p icon_temp.iconset
             
-            # 创建Python脚本文件来转换图标（避免YAML中的引号问题）
-            cat > convert_icon.py << 'ICON_SCRIPT_EOF'
-import sys
-from PIL import Image
-import os
-
-try:
-    ico_path = 'vnpy/trader/ui/ico/vnpy.ico'
-    if os.path.exists(ico_path):
-        img = Image.open(ico_path)
-        sizes = [
-            (16, 16, 'icon_16x16.png'),
-            (32, 32, 'icon_16x16@2x.png'),
-            (32, 32, 'icon_32x32.png'),
-            (64, 64, 'icon_32x32@2x.png'),
-            (128, 128, 'icon_128x128.png'),
-            (256, 256, 'icon_128x128@2x.png'),
-            (256, 256, 'icon_256x256.png'),
-            (512, 512, 'icon_256x256@2x.png'),
-            (512, 512, 'icon_512x512.png'),
-            (1024, 1024, 'icon_512x512@2x.png'),
-        ]
-        os.makedirs('icon_temp.iconset', exist_ok=True)
-        for w, h, name in sizes:
-            resized = img.resize((w, h), Image.Resampling.LANCZOS)
-            resized.save(f'icon_temp.iconset/{name}', 'PNG')
-        print('✅ 图标PNG文件已生成')
-    else:
-        print('⚠️  vnpy.ico不存在，跳过图标生成')
-except Exception as e:
-    print(f'⚠️  图标转换失败: {e}')
-    import subprocess
-    try:
-        subprocess.run(['sips', '-s', 'format', 'png', '--out', 'icon_temp.iconset/icon_512x512.png', ico_path], check=True)
-        print('✅ 使用sips转换图标')
-    except:
-        print('⚠️  无法转换图标，将使用默认图标')
-ICON_SCRIPT_EOF
+            # 创建Python脚本文件来转换图标（使用printf避免heredoc缩进问题）
+            printf '%s\n' \
+              'import sys' \
+              'from PIL import Image' \
+              'import os' \
+              '' \
+              'try:' \
+              '    ico_path = "vnpy/trader/ui/ico/vnpy.ico"' \
+              '    if os.path.exists(ico_path):' \
+              '        img = Image.open(ico_path)' \
+              '        sizes = [' \
+              '            (16, 16, "icon_16x16.png"),' \
+              '            (32, 32, "icon_16x16@2x.png"),' \
+              '            (32, 32, "icon_32x32.png"),' \
+              '            (64, 64, "icon_32x32@2x.png"),' \
+              '            (128, 128, "icon_128x128.png"),' \
+              '            (256, 256, "icon_128x128@2x.png"),' \
+              '            (256, 256, "icon_256x256.png"),' \
+              '            (512, 512, "icon_256x256@2x.png"),' \
+              '            (512, 512, "icon_512x512.png"),' \
+              '            (1024, 1024, "icon_512x512@2x.png"),' \
+              '        ]' \
+              '        os.makedirs("icon_temp.iconset", exist_ok=True)' \
+              '        for w, h, name in sizes:' \
+              '            resized = img.resize((w, h), Image.Resampling.LANCZOS)' \
+              '            resized.save(f"icon_temp.iconset/{name}", "PNG")' \
+              '        print("✅ 图标PNG文件已生成")' \
+              '    else:' \
+              '        print("⚠️  vnpy.ico不存在，跳过图标生成")' \
+              'except Exception as e:' \
+              '    print(f"⚠️  图标转换失败: {e}")' \
+              '    import subprocess' \
+              '    try:' \
+              '        subprocess.run(["sips", "-s", "format", "png", "--out", "icon_temp.iconset/icon_512x512.png", ico_path], check=True)' \
+              '        print("✅ 使用sips转换图标")' \
+              '    except:' \
+              '        print("⚠️  无法转换图标，将使用默认图标")' > convert_icon.py
             
             # 运行Python脚本
             python3 convert_icon.py || echo "⚠️  Python图标转换失败，尝试使用sips..."
