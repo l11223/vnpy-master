@@ -1,0 +1,90 @@
+# VNPY 纯Mac版dmg GitHub Actions自动打包
+name: VNPY Mac DMG Auto Build
+
+# 触发规则：1.推送到main分支自动打包 2.手动触发（推荐）
+on:
+  push:
+    branches: [ main ]  # 【需修改】可改为你的开发分支，如dev
+  workflow_dispatch:    # 手动触发开关，保留！
+
+# 仅执行Mac打包作业
+jobs:
+  build-mac-dmg:
+    runs-on: macos-12  # 稳定版macOS，兼容VNPY推荐的Python3.9，不建议改
+    steps:
+      # 步骤1：拉取仓库中的VNPY优化源码
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      # 步骤2：配置Python3.9环境（VNPY兼容最优，禁止用3.10+）
+      - name: Set Up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+          cache: 'pip'  # 缓存依赖，大幅加速后续打包
+
+      # 步骤3：安装所有依赖（VNPY+打包工具+底层依赖）
+      - name: Install All Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # 【需修改】VNPY安装方式：二选一！
+          # 方式1：修改了VNPY框架核心源码（开发版）→ 用这行
+          pip install -e .
+          # 方式2：仅修改自定义策略/脚本（未改框架）→ 用这行（注释掉上面那行）
+          # pip install vnpy
+          
+          # 安装打包工具
+          pip install pyinstaller
+          brew install create-dmg ta-lib  # 预装TA-Lib（VNPY必备，避免缺失）
+
+      # 步骤4：PyInstaller打包为Mac可执行文件
+      - name: Package VNPY via PyInstaller
+        run: |
+          pyinstaller -F -w 启动量化系统.py \
+          --add-data "vnpy:vnpy" \
+          --name VNPY-Optimized \
+          --hidden-import vnpy.trader \
+          --hidden-import vnpy.trader.platform_utils \
+          --hidden-import vnpy.trader.multiprocess_manager \
+          --hidden-import vnpy.trader.enhanced_cta_template \
+          --hidden-import vnpy.trader.history_manager \
+          --hidden-import vnpy.trader.data_filter \
+          --hidden-import vnpy.trader.optimization_metrics \
+          --hidden-import vnpy.trader.enhanced_risk_manager \
+          --hidden-import vnpy.trader.status_monitor \
+          --hidden-import vnpy.trader.gateway_mac_adapter \
+          --hidden-import loguru \
+          --hidden-import tzlocal \
+          --hidden-import talib
+          # 无图标则删下一行，有则将vnpy.icns放在仓库根目录
+          # --icon=vnpy.icns
+
+      # 步骤5：整理Mac标准.app目录结构（保证dmg兼容性）
+      - name: Organize Mac App Structure
+        run: |
+          mkdir -p VNPY.app/Contents/MacOS
+          cp -r dist/VNPY-Optimized VNPY.app/Contents/MacOS/
+          # 【可选】有自定义策略/配置文件，取消注释并补充路径
+          # cp -r your_strategy_folder/ VNPY.app/Contents/MacOS/your_strategy_folder/
+
+      # 步骤6：制作dmg镜像（Mac安装包）
+      - name: Build DMG Image
+        run: |
+          create-dmg \
+          --volname "VNPY优化版-Mac" \
+          --window-pos 200 120 \
+          --window-size 800 600 \
+          --icon-size 100 \
+          --icon VNPY.app 200 300 \
+          --hide-extension VNPY.app \
+          --app-drop-link 600 300 \
+          "VNPY-Mac-Optimized.dmg" \
+          ./
+          # 有图标则追加这行：--volicon "vnpy.icns"
+
+      # 步骤7：上传dmg产物（可在GitHub直接下载）
+      - name: Upload DMG Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VNPY-Mac-DMG  # 产物在Action页面的显示名称
+          path: ./VNPY-Mac-Optimized.dmg  # 对应步骤6的dmg文件名
