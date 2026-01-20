@@ -250,48 +250,105 @@ jobs:
           fi
           
           # 创建Info.plist（Mac App必需）
-          # 检查图标文件是否存在
+          # 检查图标文件并创建Info.plist
           if [ -f "VNPY.app/Contents/Resources/vnpy.icns" ]; then
-            ICON_KEY='    <key>CFBundleIconFile</key>
-    <string>vnpy.icns</string>'
+            printf '%s\n' \
+              '<?xml version="1.0" encoding="UTF-8"?>' \
+              '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
+              '<plist version="1.0">' \
+              '<dict>' \
+              '    <key>CFBundleExecutable</key>' \
+              '    <string>VNPY-Optimized</string>' \
+              '    <key>CFBundleIdentifier</key>' \
+              '    <string>com.vnpy.optimized</string>' \
+              '    <key>CFBundleName</key>' \
+              '    <string>VNPY优化版</string>' \
+              '    <key>CFBundleVersion</key>' \
+              '    <string>1.0</string>' \
+              '    <key>CFBundleShortVersionString</key>' \
+              '    <string>1.0</string>' \
+              '    <key>CFBundlePackageType</key>' \
+              '    <string>APPL</string>' \
+              '    <key>CFBundleIconFile</key>' \
+              '    <string>vnpy.icns</string>' \
+              '    <key>LSMinimumSystemVersion</key>' \
+              '    <string>10.15</string>' \
+              '    <key>NSHighResolutionCapable</key>' \
+              '    <true/>' \
+              '    <key>LSUIElement</key>' \
+              '    <false/>' \
+              '    <key>LSEnvironment</key>' \
+              '    <dict>' \
+              '        <key>PYTHONUNBUFFERED</key>' \
+              '        <string>1</string>' \
+              '    </dict>' \
+              '</dict>' \
+              '</plist>' > VNPY.app/Contents/Info.plist
           elif [ -f "VNPY.app/Contents/Resources/vnpy.png" ]; then
-            ICON_KEY='    <key>CFBundleIconFile</key>
-    <string>vnpy.png</string>'
+            printf '%s\n' \
+              '<?xml version="1.0" encoding="UTF-8"?>' \
+              '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
+              '<plist version="1.0">' \
+              '<dict>' \
+              '    <key>CFBundleExecutable</key>' \
+              '    <string>VNPY-Optimized</string>' \
+              '    <key>CFBundleIdentifier</key>' \
+              '    <string>com.vnpy.optimized</string>' \
+              '    <key>CFBundleName</key>' \
+              '    <string>VNPY优化版</string>' \
+              '    <key>CFBundleVersion</key>' \
+              '    <string>1.0</string>' \
+              '    <key>CFBundleShortVersionString</key>' \
+              '    <string>1.0</string>' \
+              '    <key>CFBundlePackageType</key>' \
+              '    <string>APPL</string>' \
+              '    <key>CFBundleIconFile</key>' \
+              '    <string>vnpy.png</string>' \
+              '    <key>LSMinimumSystemVersion</key>' \
+              '    <string>10.15</string>' \
+              '    <key>NSHighResolutionCapable</key>' \
+              '    <true/>' \
+              '    <key>LSUIElement</key>' \
+              '    <false/>' \
+              '    <key>LSEnvironment</key>' \
+              '    <dict>' \
+              '        <key>PYTHONUNBUFFERED</key>' \
+              '        <string>1</string>' \
+              '    </dict>' \
+              '</dict>' \
+              '</plist>' > VNPY.app/Contents/Info.plist
           else
-            ICON_KEY=''
+            printf '%s\n' \
+              '<?xml version="1.0" encoding="UTF-8"?>' \
+              '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
+              '<plist version="1.0">' \
+              '<dict>' \
+              '    <key>CFBundleExecutable</key>' \
+              '    <string>VNPY-Optimized</string>' \
+              '    <key>CFBundleIdentifier</key>' \
+              '    <string>com.vnpy.optimized</string>' \
+              '    <key>CFBundleName</key>' \
+              '    <string>VNPY优化版</string>' \
+              '    <key>CFBundleVersion</key>' \
+              '    <string>1.0</string>' \
+              '    <key>CFBundleShortVersionString</key>' \
+              '    <string>1.0</string>' \
+              '    <key>CFBundlePackageType</key>' \
+              '    <string>APPL</string>' \
+              '    <key>LSMinimumSystemVersion</key>' \
+              '    <string>10.15</string>' \
+              '    <key>NSHighResolutionCapable</key>' \
+              '    <true/>' \
+              '    <key>LSUIElement</key>' \
+              '    <false/>' \
+              '    <key>LSEnvironment</key>' \
+              '    <dict>' \
+              '        <key>PYTHONUNBUFFERED</key>' \
+              '        <string>1</string>' \
+              '    </dict>' \
+              '</dict>' \
+              '</plist>' > VNPY.app/Contents/Info.plist
           fi
-          
-          printf '%s\n' \
-            '<?xml version="1.0" encoding="UTF-8"?>' \
-            '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
-            '<plist version="1.0">' \
-            '<dict>' \
-            '    <key>CFBundleExecutable</key>' \
-            '    <string>VNPY-Optimized</string>' \
-            '    <key>CFBundleIdentifier</key>' \
-            '    <string>com.vnpy.optimized</string>' \
-            '    <key>CFBundleName</key>' \
-            '    <string>VNPY优化版</string>' \
-            '    <key>CFBundleVersion</key>' \
-            '    <string>1.0</string>' \
-            '    <key>CFBundleShortVersionString</key>' \
-            '    <string>1.0</string>' \
-            '    <key>CFBundlePackageType</key>' \
-            '    <string>APPL</string>' \
-            "$ICON_KEY" \
-            '    <key>LSMinimumSystemVersion</key>' \
-            '    <string>10.15</string>' \
-            '    <key>NSHighResolutionCapable</key>' \
-            '    <true/>' \
-            '    <key>LSUIElement</key>' \
-            '    <false/>' \
-            '    <key>LSEnvironment</key>' \
-            '    <dict>' \
-            '        <key>PYTHONUNBUFFERED</key>' \
-            '        <string>1</string>' \
-            '    </dict>' \
-            '</dict>' \
-            '</plist>' > VNPY.app/Contents/Info.plist
           
           # 最终验证.app结构
           echo "验证.app结构..."
