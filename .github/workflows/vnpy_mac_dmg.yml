@@ -10,7 +10,7 @@ on:
 # 仅执行Mac打包作业
 jobs:
   build-mac-dmg:
-    runs-on: macos-12  # 稳定版macOS，兼容VNPY推荐的Python3.9，不建议改
+    runs-on: macos-14  # 使用macos-14，资源更充足，排队时间更短
     steps:
       # 步骤1：拉取仓库中的VNPY优化源码
       - name: Checkout Source Code
