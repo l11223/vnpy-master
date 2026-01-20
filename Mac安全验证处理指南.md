@@ -10,7 +10,32 @@
 
 ## 解决方案
 
-### 方法1：右键打开（推荐）
+### 方法1：使用终端命令移除隔离属性（最简单快速）⭐
+
+在终端中执行以下命令：
+
+```bash
+xattr -d com.apple.quarantine /Applications/VNPY.app
+```
+
+**说明**：
+- `xattr` 是macOS的文件扩展属性管理工具
+- `-d` 表示删除属性
+- `com.apple.quarantine` 是macOS的隔离属性，用于标记未验证的应用
+- 删除后即可正常双击打开，无需每次右键
+
+**如果应用还在DMG中**，先拖到Applications，再执行：
+```bash
+xattr -d com.apple.quarantine /Applications/VNPY.app
+```
+
+**验证是否成功**：
+```bash
+# 检查隔离属性是否已移除（应该没有输出）
+xattr -l /Applications/VNPY.app | grep quarantine
+```
+
+### 方法2：右键打开
 
 1. **不要直接双击**应用图标
 2. **右键点击** `VNPY.app`
@@ -19,14 +44,14 @@
 
 这样会告诉macOS您信任这个应用，以后就可以正常双击打开了。
 
-### 方法2：系统设置中允许
+### 方法3：系统设置中允许
 
 1. 打开 **系统设置**（System Settings）
 2. 进入 **隐私与安全性**（Privacy & Security）
 3. 找到关于VNPY的阻止提示
 4. 点击 **"仍要打开"**（Open Anyway）
 
-### 方法3：临时禁用Gatekeeper（不推荐）
+### 方法4：临时禁用Gatekeeper（不推荐）
 
 ```bash
 # 临时允许运行未签名应用（仅限当前会话）
@@ -114,12 +139,19 @@ codesign --force --deep --sign "VNPY Developer" VNPY.app
 
 ## 推荐方案
 
-对于开源项目，**推荐使用方法1（右键打开）**：
+对于开源项目，**推荐使用方法1（xattr命令）**：
 
-1. ✅ **简单**：用户只需右键打开一次
-2. ✅ **安全**：不降低系统安全性
-3. ✅ **免费**：不需要Apple Developer账号
-4. ✅ **常见**：大多数开源Mac应用都采用这种方式
+1. ✅ **最简单**：一条命令即可解决
+2. ✅ **永久有效**：删除后无需每次操作
+3. ✅ **安全**：不降低系统安全性
+4. ✅ **快速**：比右键打开更快
+
+**使用方法**：
+```bash
+xattr -d com.apple.quarantine /Applications/VNPY.app
+```
+
+执行后即可正常双击打开应用！
 
 ## 相关链接
 
