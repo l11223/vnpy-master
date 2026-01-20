@@ -54,12 +54,29 @@ jobs:
       # 步骤4：PyInstaller打包为Mac可执行文件
       - name: Package VNPY via PyInstaller
         run: |
-          # 使用spec文件确保正确的.app结构
-          # 根据PyInstaller官方文档，--onedir模式下BUNDLE必须接收COLLECT对象
-          # 使用spec文件可以精确控制这个结构
-          pyinstaller vnpy_mac.spec
+          # 尝试两种方案：
+          # 1. 先尝试--onefile模式（更简单可靠）
+          # 2. 如果失败，回退到--onedir模式
           
-          # 验证打包结果
+          echo "尝试方案1：--onefile模式（推荐，更简单可靠）"
+          if pyinstaller vnpy_mac_simple.spec 2>&1 | tee pyinstaller.log; then
+            echo "✅ --onefile模式打包成功"
+            PACKAGE_MODE="onefile"
+          else
+            echo "⚠️  --onefile模式失败，尝试--onedir模式"
+            if pyinstaller vnpy_mac.spec 2>&1 | tee pyinstaller.log; then
+              echo "✅ --onedir模式打包成功"
+              PACKAGE_MODE="onedir"
+            else
+              echo "❌ 两种模式都失败"
+              cat pyinstaller.log
+              exit 1
+            fi
+          fi
+          
+          echo "使用的打包模式: $PACKAGE_MODE"
+          
+          # 验证打包结果（两种模式都生成.app）
           echo "检查打包结果..."
           if [ -d "dist/VNPY-Optimized.app" ]; then
             echo "✅ PyInstaller已创建.app结构"
