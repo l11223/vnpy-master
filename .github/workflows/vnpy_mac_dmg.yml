@@ -164,32 +164,31 @@ jobs:
           fi
           
           # 创建Info.plist（Mac App必需）
-          cat > VNPY.app/Contents/Info.plist << 'PLIST_EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleExecutable</key>
-    <string>VNPY-Optimized</string>
-    <key>CFBundleIdentifier</key>
-    <string>com.vnpy.optimized</string>
-    <key>CFBundleName</key>
-    <string>VNPY优化版</string>
-    <key>CFBundleVersion</key>
-    <string>1.0</string>
-    <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>10.15</string>
-    <key>NSHighResolutionCapable</key>
-    <true/>
-    <key>LSUIElement</key>
-    <false/>
-</dict>
-</plist>
-PLIST_EOF
+          printf '%s\n' \
+            '<?xml version="1.0" encoding="UTF-8"?>' \
+            '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
+            '<plist version="1.0">' \
+            '<dict>' \
+            '    <key>CFBundleExecutable</key>' \
+            '    <string>VNPY-Optimized</string>' \
+            '    <key>CFBundleIdentifier</key>' \
+            '    <string>com.vnpy.optimized</string>' \
+            '    <key>CFBundleName</key>' \
+            '    <string>VNPY优化版</string>' \
+            '    <key>CFBundleVersion</key>' \
+            '    <string>1.0</string>' \
+            '    <key>CFBundleShortVersionString</key>' \
+            '    <string>1.0</string>' \
+            '    <key>CFBundlePackageType</key>' \
+            '    <string>APPL</string>' \
+            '    <key>LSMinimumSystemVersion</key>' \
+            '    <string>10.15</string>' \
+            '    <key>NSHighResolutionCapable</key>' \
+            '    <true/>' \
+            '    <key>LSUIElement</key>' \
+            '    <false/>' \
+            '</dict>' \
+            '</plist>' > VNPY.app/Contents/Info.plist
           
           # 最终验证.app结构
           echo "验证.app结构..."
@@ -229,31 +228,30 @@ PLIST_EOF
           ln -s /Applications dmg-contents/Applications
           
           # 创建README文件（安装说明）
-          cat > dmg-contents/README.txt << 'README_EOF'
-============================================
-VNPY Mac优化版 - 安装说明
-============================================
-
-安装步骤：
-1. 将 VNPY.app 拖拽到 Applications 文件夹
-2. 在启动台找到并打开 VNPY优化版
-3. 首次运行时，右键点击应用 -> 打开（绕过安全验证）
-
-系统要求：
-- macOS 10.15 (Catalina) 或更高版本
-- Apple Silicon (M1/M2/M3) 或 Intel 处理器
-
-功能特性：
-- Mac系统完美适配
-- A股量化交易支持
-- 增强策略模板
-- 多进程策略执行
-- 历史数据管理
-- 优化指标计算
-
-如有问题，请查看使用说明文档。
-============================================
-README_EOF
+          printf '%s\n' \
+            '============================================' \
+            'VNPY Mac优化版 - 安装说明' \
+            '============================================' \
+            '' \
+            '安装步骤：' \
+            '1. 将 VNPY.app 拖拽到 Applications 文件夹' \
+            '2. 在启动台找到并打开 VNPY优化版' \
+            '3. 首次运行时，右键点击应用 -> 打开（绕过安全验证）' \
+            '' \
+            '系统要求：' \
+            '- macOS 10.15 (Catalina) 或更高版本' \
+            '- Apple Silicon (M1/M2/M3) 或 Intel 处理器' \
+            '' \
+            '功能特性：' \
+            '- Mac系统完美适配' \
+            '- A股量化交易支持' \
+            '- 增强策略模板' \
+            '- 多进程策略执行' \
+            '- 历史数据管理' \
+            '- 优化指标计算' \
+            '' \
+            '如有问题，请查看使用说明文档。' \
+            '============================================' > dmg-contents/README.txt
           
           # 检查create-dmg是否可用
           if ! command -v create-dmg &> /dev/null; then
@@ -269,27 +267,25 @@ README_EOF
             hdiutil attach "VNPY-Mac-Optimized-temp.dmg" -mountpoint /Volumes/VNPY优化版-Mac
             
             # 设置DMG窗口属性（使用AppleScript）
-            osascript << 'APPLESCRIPT_EOF'
-tell application "Finder"
-  tell disk "VNPY优化版-Mac"
-    open
-    set current view of container window to icon view
-    set toolbar visible of container window to false
-    set statusbar visible of container window to false
-    set the bounds of container window to {200, 120, 1000, 720}
-    set viewOptions to the icon view options of container window
-    set arrangement of viewOptions to not arranged
-    set icon size of viewOptions to 100
-    set position of item "VNPY.app" of container window to {200, 300}
-    set position of item "Applications" of container window to {600, 300}
-    set position of item "README.txt" of container window to {400, 500}
-    close
-    open
-    update without registering applications
-    delay 2
-  end tell
-end tell
-APPLESCRIPT_EOF
+            osascript -e 'tell application "Finder"' \
+              -e '  tell disk "VNPY优化版-Mac"' \
+              -e '    open' \
+              -e '    set current view of container window to icon view' \
+              -e '    set toolbar visible of container window to false' \
+              -e '    set statusbar visible of container window to false' \
+              -e '    set the bounds of container window to {200, 120, 1000, 720}' \
+              -e '    set viewOptions to the icon view options of container window' \
+              -e '    set arrangement of viewOptions to not arranged' \
+              -e '    set icon size of viewOptions to 100' \
+              -e '    set position of item "VNPY.app" of container window to {200, 300}' \
+              -e '    set position of item "Applications" of container window to {600, 300}' \
+              -e '    set position of item "README.txt" of container window to {400, 500}' \
+              -e '    close' \
+              -e '    open' \
+              -e '    update without registering applications' \
+              -e '    delay 2' \
+              -e '  end tell' \
+              -e 'end tell'
             
             # 卸载
             hdiutil detach /Volumes/VNPY优化版-Mac
