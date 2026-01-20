@@ -147,7 +147,7 @@ jobs:
             exit 1
           fi
           
-          # 验证.app结构
+          # 验证.app结构和可执行文件
           echo "验证.app结构..."
           if [ ! -d "VNPY.app/Contents" ]; then
             echo "❌ .app结构不正确，缺少Contents目录"
@@ -159,39 +159,65 @@ jobs:
             exit 1
           fi
           
-          # 查找可执行文件（PyInstaller可能使用不同的名称）
-          EXECUTABLE_NAME=""
-          if [ -f "VNPY.app/Contents/MacOS/VNPY-Optimized" ]; then
-            EXECUTABLE_NAME="VNPY-Optimized"
-            echo "✅ 找到可执行文件: VNPY-Optimized"
-          else
-            # 查找MacOS目录中的可执行文件
-            EXECUTABLE=$(find VNPY.app/Contents/MacOS -maxdepth 1 -type f -perm +111 2>/dev/null | head -1)
-            if [ -n "$EXECUTABLE" ]; then
-              EXECUTABLE_NAME=$(basename "$EXECUTABLE")
-              echo "✅ 找到可执行文件: $EXECUTABLE_NAME"
-              # 如果名称不对，重命名
-              if [ "$EXECUTABLE_NAME" != "VNPY-Optimized" ]; then
-                mv "$EXECUTABLE" VNPY.app/Contents/MacOS/VNPY-Optimized
-                EXECUTABLE_NAME="VNPY-Optimized"
-                echo "✅ 已重命名为VNPY-Optimized"
-              fi
-            else
-              echo "❌ 可执行文件不存在"
-              echo "MacOS目录内容："
-              ls -la VNPY.app/Contents/MacOS/
-              exit 1
-            fi
+          if [ ! -f "VNPY.app/Contents/Info.plist" ]; then
+            echo "❌ Info.plist不存在"
+            exit 1
           fi
           
-          # 确保可执行文件有执行权限
-          chmod +x "VNPY.app/Contents/MacOS/$EXECUTABLE_NAME"
-          echo "✅ 可执行文件权限已设置"
+          # 首先读取Info.plist中的CFBundleExecutable（PyInstaller设置的）
+          PLIST_EXEC=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" VNPY.app/Contents/Info.plist 2>/dev/null || echo "")
+          echo "Info.plist中的CFBundleExecutable: '$PLIST_EXEC'"
           
-          # 验证可执行文件
-          echo "可执行文件信息："
-          file "VNPY.app/Contents/MacOS/$EXECUTABLE_NAME"
-          ls -lh "VNPY.app/Contents/MacOS/$EXECUTABLE_NAME"
+          # 查找MacOS目录中的可执行文件
+          echo "查找MacOS目录中的可执行文件..."
+          ls -la VNPY.app/Contents/MacOS/ | head -10
+          
+          # 查找所有可执行文件
+          EXECUTABLE=$(find VNPY.app/Contents/MacOS -maxdepth 1 -type f -perm +111 2>/dev/null | head -1)
+          if [ -z "$EXECUTABLE" ]; then
+            # 如果没找到可执行文件，查找所有文件
+            EXECUTABLE=$(find VNPY.app/Contents/MacOS -maxdepth 1 -type f ! -name ".*" 2>/dev/null | head -1)
+          fi
+          
+          if [ -n "$EXECUTABLE" ]; then
+            ACTUAL_EXEC_NAME=$(basename "$EXECUTABLE")
+            echo "✅ 找到可执行文件: $ACTUAL_EXEC_NAME"
+            
+            # 如果Info.plist中的名称与实际文件不一致，更新Info.plist
+            if [ "$PLIST_EXEC" != "$ACTUAL_EXEC_NAME" ]; then
+              echo "⚠️  Info.plist中的可执行文件名称($PLIST_EXEC)与实际文件($ACTUAL_EXEC_NAME)不一致"
+              echo "更新Info.plist..."
+              /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable '$ACTUAL_EXEC_NAME'" VNPY.app/Contents/Info.plist
+              echo "✅ Info.plist已更新为: $ACTUAL_EXEC_NAME"
+            fi
+            
+            # 确保可执行文件有执行权限
+            chmod +x "$EXECUTABLE"
+            echo "✅ 可执行文件权限已设置"
+            
+            # 验证可执行文件
+            echo "可执行文件信息："
+            file "$EXECUTABLE"
+            ls -lh "$EXECUTABLE"
+          else
+            echo "❌ 未找到可执行文件"
+            echo "MacOS目录完整内容："
+            ls -la VNPY.app/Contents/MacOS/
+            exit 1
+          fi
+          
+          # 最终验证：确保Info.plist中的可执行文件存在
+          FINAL_EXEC=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" VNPY.app/Contents/Info.plist 2>/dev/null || echo "")
+          if [ -n "$FINAL_EXEC" ] && [ -f "VNPY.app/Contents/MacOS/$FINAL_EXEC" ]; then
+            echo "✅ 最终验证通过: Info.plist中的可执行文件存在"
+            chmod +x "VNPY.app/Contents/MacOS/$FINAL_EXEC"
+          else
+            echo "❌ 最终验证失败: Info.plist中的可执行文件不存在"
+            echo "CFBundleExecutable: '$FINAL_EXEC'"
+            echo "MacOS目录内容："
+            ls -la VNPY.app/Contents/MacOS/
+            exit 1
+          fi
           
           echo "✅ .app结构验证通过"
           
