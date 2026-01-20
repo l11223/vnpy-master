@@ -269,27 +269,27 @@ jobs:
             hdiutil attach "VNPY-Mac-Optimized-temp.dmg" -mountpoint /Volumes/VNPY优化版-Mac
             
             # 设置DMG窗口属性（使用AppleScript）
-            osascript << 'APPLESCRIPT'
-tell application "Finder"
-  tell disk "VNPY优化版-Mac"
-    open
-    set current view of container window to icon view
-    set toolbar visible of container window to false
-    set statusbar visible of container window to false
-    set the bounds of container window to {200, 120, 1000, 720}
-    set viewOptions to the icon view options of container window
-    set arrangement of viewOptions to not arranged
-    set icon size of viewOptions to 100
-    set position of item "VNPY.app" of container window to {200, 300}
-    set position of item "Applications" of container window to {600, 300}
-    set position of item "README.txt" of container window to {400, 500}
-    close
-    open
-    update without registering applications
-    delay 2
-  end tell
-end tell
-APPLESCRIPT
+            osascript << 'APPLESCRIPT_EOF'
+            tell application "Finder"
+              tell disk "VNPY优化版-Mac"
+                open
+                set current view of container window to icon view
+                set toolbar visible of container window to false
+                set statusbar visible of container window to false
+                set the bounds of container window to {200, 120, 1000, 720}
+                set viewOptions to the icon view options of container window
+                set arrangement of viewOptions to not arranged
+                set icon size of viewOptions to 100
+                set position of item "VNPY.app" of container window to {200, 300}
+                set position of item "Applications" of container window to {600, 300}
+                set position of item "README.txt" of container window to {400, 500}
+                close
+                open
+                update without registering applications
+                delay 2
+              end tell
+            end tell
+            APPLESCRIPT_EOF
             
             # 卸载
             hdiutil detach /Volumes/VNPY优化版-Mac
