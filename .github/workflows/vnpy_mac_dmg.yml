@@ -160,8 +160,8 @@ jobs:
             # 创建临时图标目录
             mkdir -p icon_temp.iconset
             
-            # 使用Python转换图标（使用-c参数避免heredoc问题）
-            python3 -c "
+            # 创建Python脚本文件来转换图标（避免YAML中的引号问题）
+            cat > convert_icon.py << 'ICON_SCRIPT_EOF'
 import sys
 from PIL import Image
 import os
@@ -197,7 +197,11 @@ except Exception as e:
         print('✅ 使用sips转换图标')
     except:
         print('⚠️  无法转换图标，将使用默认图标')
-" || echo "⚠️  Python图标转换失败，尝试使用sips..."
+ICON_SCRIPT_EOF
+            
+            # 运行Python脚本
+            python3 convert_icon.py || echo "⚠️  Python图标转换失败，尝试使用sips..."
+            rm -f convert_icon.py
             
             # 如果Python转换失败，尝试使用sips直接转换
             if [ ! -d "icon_temp.iconset" ] || [ -z "$(ls -A icon_temp.iconset 2>/dev/null)" ]; then
