@@ -160,50 +160,50 @@ jobs:
             # 创建临时图标目录
             mkdir -p icon_temp.iconset
             
-            # 使用sips将ico转换为不同尺寸的png（Mac图标需要多个尺寸）
-            # 如果sips不支持ico，先尝试用Python转换
-            python3 << 'PYEOF'
+            # 使用Python转换图标（使用-c参数避免heredoc问题）
+            python3 -c "
 import sys
 from PIL import Image
 import os
 
 try:
-    ico_path = "vnpy/trader/ui/ico/vnpy.ico"
+    ico_path = 'vnpy/trader/ui/ico/vnpy.ico'
     if os.path.exists(ico_path):
         img = Image.open(ico_path)
-        
-        # Mac图标需要的尺寸
         sizes = [
-            (16, 16, "icon_16x16.png"),
-            (32, 32, "icon_16x16@2x.png"),
-            (32, 32, "icon_32x32.png"),
-            (64, 64, "icon_32x32@2x.png"),
-            (128, 128, "icon_128x128.png"),
-            (256, 256, "icon_128x128@2x.png"),
-            (256, 256, "icon_256x256.png"),
-            (512, 512, "icon_256x256@2x.png"),
-            (512, 512, "icon_512x512.png"),
-            (1024, 1024, "icon_512x512@2x.png"),
+            (16, 16, 'icon_16x16.png'),
+            (32, 32, 'icon_16x16@2x.png'),
+            (32, 32, 'icon_32x32.png'),
+            (64, 64, 'icon_32x32@2x.png'),
+            (128, 128, 'icon_128x128.png'),
+            (256, 256, 'icon_128x128@2x.png'),
+            (256, 256, 'icon_256x256.png'),
+            (512, 512, 'icon_256x256@2x.png'),
+            (512, 512, 'icon_512x512.png'),
+            (1024, 1024, 'icon_512x512@2x.png'),
         ]
-        
-        os.makedirs("icon_temp.iconset", exist_ok=True)
+        os.makedirs('icon_temp.iconset', exist_ok=True)
         for w, h, name in sizes:
             resized = img.resize((w, h), Image.Resampling.LANCZOS)
-            resized.save(f"icon_temp.iconset/{name}", "PNG")
-        
-        print("✅ 图标PNG文件已生成")
+            resized.save(f'icon_temp.iconset/{name}', 'PNG')
+        print('✅ 图标PNG文件已生成')
     else:
-        print("⚠️  vnpy.ico不存在，跳过图标生成")
+        print('⚠️  vnpy.ico不存在，跳过图标生成')
 except Exception as e:
-    print(f"⚠️  图标转换失败: {e}")
-    # 如果PIL不可用，尝试用sips
+    print(f'⚠️  图标转换失败: {e}')
     import subprocess
     try:
         subprocess.run(['sips', '-s', 'format', 'png', '--out', 'icon_temp.iconset/icon_512x512.png', ico_path], check=True)
-        print("✅ 使用sips转换图标")
+        print('✅ 使用sips转换图标')
     except:
-        print("⚠️  无法转换图标，将使用默认图标")
-PYEOF
+        print('⚠️  无法转换图标，将使用默认图标')
+" || echo "⚠️  Python图标转换失败，尝试使用sips..."
+            
+            # 如果Python转换失败，尝试使用sips直接转换
+            if [ ! -d "icon_temp.iconset" ] || [ -z "$(ls -A icon_temp.iconset 2>/dev/null)" ]; then
+              echo "尝试使用sips转换图标..."
+              sips -s format png vnpy/trader/ui/ico/vnpy.ico --out icon_temp.iconset/icon_512x512.png 2>/dev/null || echo "⚠️  sips转换也失败"
+            fi
             
             # 使用iconutil生成.icns文件
             if [ -d "icon_temp.iconset" ] && [ "$(ls -A icon_temp.iconset)" ]; then
