@@ -81,6 +81,7 @@ exe = EXE(
 )
 
 # 关键：在--onedir模式下，BUNDLE必须接收COLLECT对象，不是EXE对象
+# 这是PyInstaller官方文档明确要求的
 coll = COLLECT(
     exe,
     a.binaries,
@@ -93,13 +94,14 @@ coll = COLLECT(
 )
 
 app = BUNDLE(
-    coll,  # 必须使用coll，不是exe！
+    coll,  # 必须使用coll，不是exe！这是解决(null)错误的关键
     name='VNPY-Optimized.app',
-    icon=None,  # 图标稍后添加
+    icon=None,  # 图标稍后通过工作流添加
     bundle_identifier='com.vnpy.optimized',
     info_plist={
         'CFBundleName': 'VNPY优化版',
         'CFBundleDisplayName': 'VNPY优化版',
+        'CFBundleExecutable': 'VNPY-Optimized',  # 明确指定可执行文件名称
         'CFBundleVersion': '1.0',
         'CFBundleShortVersionString': '1.0',
         'CFBundlePackageType': 'APPL',
