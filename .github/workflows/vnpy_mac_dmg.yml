@@ -40,8 +40,12 @@ jobs:
           # 安装TA-Lib（VNPY必备）
           brew install ta-lib || echo "ta-lib可能已安装或需要手动处理"
           
+          # 安装可选依赖（用于Alpha策略等）
+          pip install polars pandas numpy matplotlib || echo "可选依赖安装失败，继续..."
+          
           # 验证关键依赖
           python -c "import vnpy; import loguru; import tzlocal; print('✅ 核心依赖验证通过')"
+          python -c "import polars; print('✅ polars已安装')" || echo "⚠️  polars未安装（Alpha策略需要）"
 
       # 步骤4：PyInstaller打包为Mac可执行文件
       - name: Package VNPY via PyInstaller
