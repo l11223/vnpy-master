@@ -230,30 +230,30 @@ jobs:
           
           # 创建README文件（安装说明）
           cat > dmg-contents/README.txt << 'EOF'
-          ============================================
-          VNPY Mac优化版 - 安装说明
-          ============================================
-          
-          安装步骤：
-          1. 将 VNPY.app 拖拽到 Applications 文件夹
-          2. 在启动台找到并打开 VNPY优化版
-          3. 首次运行时，右键点击应用 -> 打开（绕过安全验证）
-          
-          系统要求：
-          - macOS 10.15 (Catalina) 或更高版本
-          - Apple Silicon (M1/M2/M3) 或 Intel 处理器
-          
-          功能特性：
-          - Mac系统完美适配
-          - A股量化交易支持
-          - 增强策略模板
-          - 多进程策略执行
-          - 历史数据管理
-          - 优化指标计算
-          
-          如有问题，请查看使用说明文档。
-          ============================================
-          EOF
+============================================
+VNPY Mac优化版 - 安装说明
+============================================
+
+安装步骤：
+1. 将 VNPY.app 拖拽到 Applications 文件夹
+2. 在启动台找到并打开 VNPY优化版
+3. 首次运行时，右键点击应用 -> 打开（绕过安全验证）
+
+系统要求：
+- macOS 10.15 (Catalina) 或更高版本
+- Apple Silicon (M1/M2/M3) 或 Intel 处理器
+
+功能特性：
+- Mac系统完美适配
+- A股量化交易支持
+- 增强策略模板
+- 多进程策略执行
+- 历史数据管理
+- 优化指标计算
+
+如有问题，请查看使用说明文档。
+============================================
+EOF
           
           # 检查create-dmg是否可用
           if ! command -v create-dmg &> /dev/null; then
@@ -270,26 +270,26 @@ jobs:
             
             # 设置DMG窗口属性（使用AppleScript）
             osascript << 'APPLESCRIPT'
-            tell application "Finder"
-              tell disk "VNPY优化版-Mac"
-                open
-                set current view of container window to icon view
-                set toolbar visible of container window to false
-                set statusbar visible of container window to false
-                set the bounds of container window to {200, 120, 1000, 720}
-                set viewOptions to the icon view options of container window
-                set arrangement of viewOptions to not arranged
-                set icon size of viewOptions to 100
-                set position of item "VNPY.app" of container window to {200, 300}
-                set position of item "Applications" of container window to {600, 300}
-                set position of item "README.txt" of container window to {400, 500}
-                close
-                open
-                update without registering applications
-                delay 2
-              end tell
-            end tell
-            APPLESCRIPT
+tell application "Finder"
+  tell disk "VNPY优化版-Mac"
+    open
+    set current view of container window to icon view
+    set toolbar visible of container window to false
+    set statusbar visible of container window to false
+    set the bounds of container window to {200, 120, 1000, 720}
+    set viewOptions to the icon view options of container window
+    set arrangement of viewOptions to not arranged
+    set icon size of viewOptions to 100
+    set position of item "VNPY.app" of container window to {200, 300}
+    set position of item "Applications" of container window to {600, 300}
+    set position of item "README.txt" of container window to {400, 500}
+    close
+    open
+    update without registering applications
+    delay 2
+  end tell
+end tell
+APPLESCRIPT
             
             # 卸载
             hdiutil detach /Volumes/VNPY优化版-Mac
