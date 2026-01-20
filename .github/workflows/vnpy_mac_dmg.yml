@@ -34,6 +34,9 @@ jobs:
           # 安装打包工具
           pip install pyinstaller
           
+          # 安装图标处理工具（Pillow用于图标转换）
+          pip install Pillow || echo "Pillow安装失败，将尝试其他方法..."
+          
           # 安装create-dmg（Mac DMG制作工具）
           brew install create-dmg || echo "create-dmg安装失败，尝试继续..."
           
@@ -46,6 +49,7 @@ jobs:
           # 验证关键依赖
           python -c "import vnpy; import loguru; import tzlocal; print('✅ 核心依赖验证通过')"
           python -c "import polars; print('✅ polars已安装')" || echo "⚠️  polars未安装（Alpha策略需要）"
+          python -c "from PIL import Image; print('✅ Pillow已安装（图标处理）')" || echo "⚠️  Pillow未安装（图标转换可能失败）"
 
       # 步骤4：PyInstaller打包为Mac可执行文件
       - name: Package VNPY via PyInstaller
@@ -150,7 +154,76 @@ jobs:
             fi
           fi
           
-          # 复制图标资源到Resources目录（确保UI图标可用）
+          # 创建应用图标（从.ico转换为.icns）
+          echo "创建应用图标..."
+          if [ -f "vnpy/trader/ui/ico/vnpy.ico" ]; then
+            # 创建临时图标目录
+            mkdir -p icon_temp.iconset
+            
+            # 使用sips将ico转换为不同尺寸的png（Mac图标需要多个尺寸）
+            # 如果sips不支持ico，先尝试用Python转换
+            python3 << 'PYEOF'
+import sys
+from PIL import Image
+import os
+
+try:
+    ico_path = "vnpy/trader/ui/ico/vnpy.ico"
+    if os.path.exists(ico_path):
+        img = Image.open(ico_path)
+        
+        # Mac图标需要的尺寸
+        sizes = [
+            (16, 16, "icon_16x16.png"),
+            (32, 32, "icon_16x16@2x.png"),
+            (32, 32, "icon_32x32.png"),
+            (64, 64, "icon_32x32@2x.png"),
+            (128, 128, "icon_128x128.png"),
+            (256, 256, "icon_128x128@2x.png"),
+            (256, 256, "icon_256x256.png"),
+            (512, 512, "icon_256x256@2x.png"),
+            (512, 512, "icon_512x512.png"),
+            (1024, 1024, "icon_512x512@2x.png"),
+        ]
+        
+        os.makedirs("icon_temp.iconset", exist_ok=True)
+        for w, h, name in sizes:
+            resized = img.resize((w, h), Image.Resampling.LANCZOS)
+            resized.save(f"icon_temp.iconset/{name}", "PNG")
+        
+        print("✅ 图标PNG文件已生成")
+    else:
+        print("⚠️  vnpy.ico不存在，跳过图标生成")
+except Exception as e:
+    print(f"⚠️  图标转换失败: {e}")
+    # 如果PIL不可用，尝试用sips
+    import subprocess
+    try:
+        subprocess.run(['sips', '-s', 'format', 'png', '--out', 'icon_temp.iconset/icon_512x512.png', ico_path], check=True)
+        print("✅ 使用sips转换图标")
+    except:
+        print("⚠️  无法转换图标，将使用默认图标")
+PYEOF
+            
+            # 使用iconutil生成.icns文件
+            if [ -d "icon_temp.iconset" ] && [ "$(ls -A icon_temp.iconset)" ]; then
+              iconutil -c icns icon_temp.iconset -o VNPY.app/Contents/Resources/vnpy.icns 2>/dev/null || {
+                echo "⚠️  iconutil失败，尝试其他方法..."
+                # 如果iconutil失败，至少复制一个PNG作为备用
+                if [ -f "icon_temp.iconset/icon_512x512.png" ]; then
+                  cp icon_temp.iconset/icon_512x512.png VNPY.app/Contents/Resources/vnpy.png
+                fi
+              }
+              rm -rf icon_temp.iconset
+              echo "✅ 应用图标已创建"
+            else
+              echo "⚠️  图标目录为空，跳过图标创建"
+            fi
+          else
+            echo "⚠️  vnpy.ico不存在，跳过图标创建"
+          fi
+          
+          # 复制UI图标资源到MacOS目录（确保UI图标可用）
           if [ -d "vnpy/trader/ui/ico" ]; then
             echo "复制UI图标资源..."
             mkdir -p VNPY.app/Contents/MacOS/vnpy/trader/ui/ico
@@ -164,7 +237,27 @@ jobs:
             echo "✅ 图标资源验证: 找到 $ICON_COUNT 个图标文件"
           fi
           
+          # 验证应用图标
+          if [ -f "VNPY.app/Contents/Resources/vnpy.icns" ]; then
+            echo "✅ 应用图标文件已创建: vnpy.icns"
+          elif [ -f "VNPY.app/Contents/Resources/vnpy.png" ]; then
+            echo "✅ 应用图标文件已创建: vnpy.png（备用）"
+          else
+            echo "⚠️  应用图标文件未创建，将使用默认图标"
+          fi
+          
           # 创建Info.plist（Mac App必需）
+          # 检查图标文件是否存在
+          if [ -f "VNPY.app/Contents/Resources/vnpy.icns" ]; then
+            ICON_KEY='    <key>CFBundleIconFile</key>
+    <string>vnpy.icns</string>'
+          elif [ -f "VNPY.app/Contents/Resources/vnpy.png" ]; then
+            ICON_KEY='    <key>CFBundleIconFile</key>
+    <string>vnpy.png</string>'
+          else
+            ICON_KEY=''
+          fi
+          
           printf '%s\n' \
             '<?xml version="1.0" encoding="UTF-8"?>' \
             '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
@@ -182,6 +275,7 @@ jobs:
             '    <string>1.0</string>' \
             '    <key>CFBundlePackageType</key>' \
             '    <string>APPL</string>' \
+            "$ICON_KEY" \
             '    <key>LSMinimumSystemVersion</key>' \
             '    <string>10.15</string>' \
             '    <key>NSHighResolutionCapable</key>' \
@@ -200,6 +294,11 @@ jobs:
           echo "验证.app结构..."
           if [ -f "VNPY.app/Contents/MacOS/VNPY-Optimized" ]; then
             echo "✅ .app结构创建成功"
+            echo "可执行文件权限："
+            ls -l VNPY.app/Contents/MacOS/VNPY-Optimized
+            echo ""
+            echo "测试可执行文件："
+            VNPY.app/Contents/MacOS/VNPY-Optimized --version 2>&1 | head -5 || echo "（无法获取版本信息，但文件存在）"
             chmod +x VNPY.app/Contents/MacOS/VNPY-Optimized
             file VNPY.app/Contents/MacOS/VNPY-Optimized
             ls -lh VNPY.app/Contents/MacOS/VNPY-Optimized
