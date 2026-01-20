@@ -51,9 +51,10 @@ jobs:
       - name: Package VNPY via PyInstaller
         run: |
           # 使用--onedir模式（目录模式），更稳定，Mac推荐
+          # 注意：不使用--windowed，保留控制台输出以便调试
+          # 如果确实需要无控制台，可以在Info.plist中设置LSUIElement
           pyinstaller \
           --onedir \
-          --windowed \
           --name VNPY-Optimized \
           --add-data "vnpy:vnpy" \
           --add-data "vnpy/trader/ui/ico:vnpy/trader/ui/ico" \
@@ -90,7 +91,7 @@ jobs:
           --collect-all PySide6 \
           --collect-all qdarkstyle \
           --collect-all vnpy \
-          "启动量化系统.py"
+          "vnpy_launcher.py"
           
           # 验证打包结果
           if [ -d "dist/VNPY-Optimized" ]; then
@@ -187,6 +188,11 @@ jobs:
             '    <true/>' \
             '    <key>LSUIElement</key>' \
             '    <false/>' \
+            '    <key>LSEnvironment</key>' \
+            '    <dict>' \
+            '        <key>PYTHONUNBUFFERED</key>' \
+            '        <string>1</string>' \
+            '    </dict>' \
             '</dict>' \
             '</plist>' > VNPY.app/Contents/Info.plist
           
