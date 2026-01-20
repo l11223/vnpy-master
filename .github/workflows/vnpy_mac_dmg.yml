@@ -24,14 +24,34 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
+          
+          # 安装 ta-lib 系统库（必须先于 Python 包）
+          brew install ta-lib || true
+          
+          # 安装 VNPY 及其依赖
           pip install -e .
+          
+          # 安装打包工具
           pip install pyinstaller
           pip install Pillow
+          
+          # 安装 DMG 工具
           brew install create-dmg || true
-          brew install ta-lib || true
-          pip install polars pandas numpy matplotlib || true
-          python -c "import vnpy; print('VNPY installed')"
-          python -c "import PySide6; print('PySide6 installed')"
+          
+          # 安装 TA-Lib Python 包（关键！）
+          pip install TA-Lib || pip install ta-lib || echo "TA-Lib install failed, trying numpy first..."
+          pip install numpy
+          pip install TA-Lib || echo "TA-Lib still failed"
+          
+          # 安装其他依赖
+          pip install polars pandas matplotlib zmq || true
+          
+          # 验证安装
+          echo "验证依赖安装..."
+          python -c "import vnpy; print('✅ VNPY installed')"
+          python -c "import PySide6; print('✅ PySide6 installed')"
+          python -c "import talib; print('✅ TA-Lib installed')" || echo "⚠️ TA-Lib not installed"
+          python -c "import talib.stream; print('✅ talib.stream available')" || echo "⚠️ talib.stream not available"
 
       - name: Build App with PyInstaller
         run: |
@@ -47,7 +67,16 @@ jobs:
             --hidden-import vnpy \
             --hidden-import vnpy.trader \
             --hidden-import vnpy.trader.ui \
+            --hidden-import vnpy.trader.engine \
+            --hidden-import vnpy.trader.utility \
+            --hidden-import vnpy.trader.setting \
+            --hidden-import vnpy.trader.constant \
+            --hidden-import vnpy.trader.object \
+            --hidden-import vnpy.trader.gateway \
+            --hidden-import vnpy.trader.database \
+            --hidden-import vnpy.trader.datafeed \
             --hidden-import vnpy.event \
+            --hidden-import vnpy.event.engine \
             --hidden-import PySide6 \
             --hidden-import PySide6.QtCore \
             --hidden-import PySide6.QtGui \
@@ -55,8 +84,16 @@ jobs:
             --hidden-import qdarkstyle \
             --hidden-import loguru \
             --hidden-import tzlocal \
+            --hidden-import talib \
+            --hidden-import talib.stream \
+            --hidden-import talib.abstract \
+            --hidden-import numpy \
+            --hidden-import pandas \
+            --hidden-import zmq \
             --collect-all PySide6 \
             --collect-all qdarkstyle \
+            --collect-all talib \
+            --collect-all vnpy \
             vnpy_launcher.py
           
           echo ""
