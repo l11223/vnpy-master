@@ -1,6 +1,9 @@
 name: Python application
 
-on: [push]
+# 已禁用：我们只需要Mac DMG打包，不需要Windows代码检查
+# on: [push]
+on:
+  workflow_dispatch:  # 仅手动触发，不自动运行
 
 jobs:
   build:
